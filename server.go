@@ -13,9 +13,19 @@ type Server struct {
 	Cache          []string
 	GroupDB        string
 	UserDB         string
-	Version        string
-	Name           string
-	Usage          string
+	Info
+}
+
+type Backends struct {
+	Cache   []string
+	GroupDB string
+	UserDB  string
+}
+
+type Info struct {
+	Version string
+	Name    string
+	Usage   string
 }
 
 func NewServer(port string) *Server {
@@ -52,13 +62,13 @@ func (srv *Server) Start() {
 func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		// Configure the Authenticator instance
-		authenticator := NewAuthenticator(w, r)
+		authenticator := NewAuthenticator()
 		authenticator.Cache = srv.Cache
 		authenticator.GroupDB = srv.GroupDB
 		authenticator.UserDB = srv.UserDB
 
 		// Execute a token request
-		authenticator.HandleTokenRequest()
+		authenticator.HandleTokenRequest(w, r)
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte("Error 405: Method not allowed\n"))
@@ -66,7 +76,18 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) {
-
+	if r.Method == "POST" {
+		authorizer := NewAuthorizer()
+		authorizer.Backend = &Backends{
+			Cache:   srv.Cache,
+			UserDB:  srv.UserDB,
+			GroupDB: srv.GroupDB,
+		}
+		authorizer.AuthorizeRequest(w, r)
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("Error 405: Method not allowed\n"))
+	}
 }
 
 // @TODO make motd configurable
