@@ -50,7 +50,7 @@ func LoadFlags() []cli.Flag {
 		},
 		cli.StringSliceFlag{
 			Name:   "memcache, m",
-			Value:  &cli.StringSlice{"http://localhost:11211"},
+			Value:  &cli.StringSlice{"127.0.0.1:11211"},
 			Usage:  "Configure memcache instance(s).",
 			EnvVar: "GOUNCER_CACHE",
 		},
@@ -77,7 +77,7 @@ func StartGouncerServer(c *cli.Context) {
 	srv.CertificateKey = c.String("key")
 	srv.Cache = c.StringSlice("memcache")
 	srv.UserDB = c.String("userdb")
-	srv.GroupDB = c.String("groupdb")
+	srv.GroupDB = c.String("group")
 
 	// Transfer version and description info to the server layer
 	srv.Name = c.App.Name
