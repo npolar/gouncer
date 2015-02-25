@@ -15,35 +15,27 @@ import (
 type Authorizer struct {
 	Credentials // Anonymous credentials object
 	Backend     *Backends
-	Response    *AuthorizationResponse
-	Error       *AuthError
+	ResponseHandler
 }
 
-type AuthorizationResponse struct {
-	Status  string
-	Message string
+func NewAuthorizer(w http.ResponseWriter, r *http.Request) *Authorizer {
+	a := &Authorizer{}
+	a.Writer = w
+	a.HttpRequest = r
+	a.Response = &AuthResponse{}
+
+	return a
 }
 
-func NewAuthorizer() *Authorizer {
-	return &Authorizer{
-		Response: &AuthorizationResponse{},
-		Error:    &AuthError{},
-	}
-}
-
-func (auth *Authorizer) AuthorizeRequest(w http.ResponseWriter, r *http.Request) {
-	if err := auth.ParseAuthHeader(r.Header.Get("Authorization")); err == nil {
-		req := auth.ParseRequestBody(r.Body)
+func (auth *Authorizer) AuthorizeRequest() {
+	if err := auth.ParseAuthHeader(auth.HttpRequest.Header.Get("Authorization")); err == nil {
+		req := auth.ParseRequestBody(auth.HttpRequest.Body)
 		auth.ValidateRequest(req)
 	} else {
-		auth.SetError(http.StatusUnauthorized, "Unauthorized", "Unsupported Authorization method")
+		auth.NewError(http.StatusUnauthorized, "Unsupported Authorization method")
 	}
 
-	if auth.Error.Error == "" {
-		auth.RespondAuthorized(w, r)
-	} else {
-		auth.RespondError(w, r)
-	}
+	auth.Respond()
 }
 
 func (auth *Authorizer) ValidateRequest(req map[string]interface{}) {
@@ -53,7 +45,7 @@ func (auth *Authorizer) ValidateRequest(req map[string]interface{}) {
 		} else {
 			token := toki.NewJsonWebToken()
 			if err := token.Parse(auth.Token); err != nil {
-				auth.SetError(http.StatusUnauthorized, "Unauthorized", err.Error())
+				auth.NewError(http.StatusUnauthorized, err.Error())
 			}
 
 			username := token.Claim.Content["user"].(string)
@@ -67,14 +59,16 @@ func (auth *Authorizer) ValidateRequest(req map[string]interface{}) {
 					// Touch the memcache instance only when token validation succeeds
 					mc.Touch(username, 600)
 				} else {
-					auth.SetError(http.StatusUnauthorized, "Unauthorized", err.Error())
+					log.Println(err)
+					auth.NewError(http.StatusUnauthorized, err.Error())
 				}
 			} else {
-				auth.SetError(http.StatusUnauthorized, "Unauthorized", err.Error())
+				log.Println(err)
+				auth.NewError(http.StatusUnauthorized, err.Error())
 			}
 		}
 	} else {
-		auth.SetError(http.StatusUnauthorized, "Unauthorized", "No system info provided")
+		auth.NewError(http.StatusUnauthorized, "No system info provided")
 	}
 }
 
@@ -111,22 +105,13 @@ func (auth *Authorizer) ParseRequestBody(body io.ReadCloser) map[string]interfac
 	defer body.Close()
 
 	if err != nil {
-		auth.SetError(http.StatusUnauthorized, "Unauthorized", err.Error())
+		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 
 	response := make(map[string]interface{})
 	json.Unmarshal(raw, &response)
 
 	return response
-}
-
-func (auth *Authorizer) RespondError(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(auth.Error.Status)
-	w.Write([]byte(auth.Error.String()))
-}
-
-func (auth *Authorizer) RespondAuthorized(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(auth.Response.Message))
 }
 
 func (auth *Authorizer) SystemAccessible(system string, accessList map[string]interface{}) {
@@ -144,10 +129,9 @@ func (auth *Authorizer) SystemAccessible(system string, accessList map[string]in
 	}
 
 	if match {
-		rightsJson, _ := json.Marshal(r)
-		auth.Response.Message = string(rightsJson)
+		auth.Response.AccessRights = r
 	} else {
-		auth.SetError(http.StatusUnauthorized, "Unauthorized", "You do not have access to this system")
+		auth.NewError(http.StatusUnauthorized, "You do not have access to this system")
 	}
 }
 
@@ -164,10 +148,4 @@ func (auth *Authorizer) PathsMatch(pathA string, pathB string) bool {
 	}
 
 	return match
-}
-
-func (auth *Authorizer) SetError(status int, httpErrorText string, message string) {
-	auth.Error.Status = status
-	auth.Error.Error = httpErrorText
-	auth.Error.Message = message
 }
