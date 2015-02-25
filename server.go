@@ -62,13 +62,13 @@ func (srv *Server) Start() {
 func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		// Configure the Authenticator instance
-		authenticator := NewAuthenticator()
+		authenticator := NewAuthenticator(w, r)
 		authenticator.Cache = srv.Cache
 		authenticator.GroupDB = srv.GroupDB
 		authenticator.UserDB = srv.UserDB
 
 		// Execute a token request
-		authenticator.HandleTokenRequest(w, r)
+		authenticator.HandleTokenRequest()
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte("Error 405: Method not allowed\n"))
@@ -77,13 +77,13 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 
 func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
-		authorizer := NewAuthorizer()
+		authorizer := NewAuthorizer(w, r)
 		authorizer.Backend = &Backends{
 			Cache:   srv.Cache,
 			UserDB:  srv.UserDB,
 			GroupDB: srv.GroupDB,
 		}
-		authorizer.AuthorizeRequest(w, r)
+		authorizer.AuthorizeRequest()
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte("Error 405: Method not allowed\n"))
