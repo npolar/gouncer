@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	basicPattern  = "(?i)^Basic\\s([a-zA-Z0-9-_]+)$"
+	basicPattern  = "(?i)^Basic\\s([a-zA-Z0-9-_=]+)$"
 	bearerPattern = "(?i)^Bearer\\s([a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+)$"
 )
 
@@ -43,11 +43,16 @@ func (creds *Credentials) BearerToken(authHeader string) (bool, *regexp.Regexp) 
 
 func (creds *Credentials) ParseBasicAuth(basicAuth string) error {
 	if credString, err := creds.DecodeBase64(basicAuth); err == nil {
-		if segs, err := creds.SplitBasicAuth(credString); err == nil {
-			creds.Username = segs[0]
-			creds.Password = segs[1]
+		segs, err := creds.SplitBasicAuth(credString)
+
+		if err != nil {
+			return err
 		}
-		return err
+
+		creds.Username = segs[0]
+		creds.Password = segs[1]
+
+		return nil
 	} else {
 		return err
 	}
