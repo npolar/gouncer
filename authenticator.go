@@ -1,17 +1,15 @@
 package gouncer
 
 import (
-	"encoding/json"
+	"github.com/RDux/toki"
 	"github.com/bradfitz/gomemcache/memcache"
-	"io/ioutil"
+	"log"
 	"net/http"
 )
 
 type Authenticator struct {
 	Credentials
-	Cache   []string
-	GroupDB string
-	UserDB  string
+	Backend *Backend
 	ResponseHandler
 }
 
@@ -35,18 +33,36 @@ func (auth *Authenticator) HandleTokenRequest() {
 }
 
 func (auth *Authenticator) GenerateToken() {
-	if tokenizer, err := NewTokenizer(auth.Password, auth.FetchUser()); err == nil {
-		tokenizer.GroupDB = auth.GroupDB
-		token, err := tokenizer.GenerateJWT()
+	userInfo, err := auth.FetchUser()
 
-		if err != nil {
-			auth.NewError(http.StatusUnauthorized, err.Error())
-		}
+	if err == nil {
+		auth.ResolveHashAlg(userInfo["hash"].(string))
 
-		if err = auth.CacheTokenInfo(tokenizer.Secret); err == nil {
-			auth.Response.Token = token
-		} else {
-			auth.NewError(http.StatusInternalServerError, err.Error())
+		// Check if the provided password matches that in the user database
+		if userInfo["password"].(string) == auth.PasswordHash() {
+			auth.GenerateSecret()
+			tokenizer := toki.NewJsonWebToken()
+
+			// Set the token contents
+			tokenizer.Claim.Content = auth.TokenBody(userInfo)
+
+			// Sign the token and return the full token string
+			tokenizer.Sign(auth.Secret)
+			token, err := tokenizer.String()
+
+			if err == nil {
+				// Cache the token info for validation purposes
+				err = auth.CacheTokenInfo(auth.Secret)
+
+				// When token info is cached respond with the token
+				if err == nil {
+					auth.Response.Token = token
+				}
+			}
+
+			if err != nil {
+				auth.NewError(http.StatusUnauthorized, err.Error())
+			}
 		}
 	} else {
 		auth.NewError(http.StatusUnauthorized, err.Error())
@@ -55,23 +71,61 @@ func (auth *Authenticator) GenerateToken() {
 
 // CacheTokenInfo caches the username and secret for validation purposes
 func (auth *Authenticator) CacheTokenInfo(secret string) error {
-	mc := memcache.New(auth.Cache...)
-	return mc.Set(&memcache.Item{Key: auth.Username, Value: []byte(secret), Expiration: 1200})
+	return auth.Backend.Cache.Set(&memcache.Item{Key: auth.Username, Value: []byte(secret), Expiration: 1200})
 }
 
-func (auth *Authenticator) FetchUser() map[string]interface{} {
-	var caller = make(map[string]interface{})
+// Generate the contents that will be sent in the tokens claim body
+func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string]interface{} {
+	var content = make(map[string]interface{})
+	var systems = make(map[string]interface{})
 
-	if response, err := http.Get(auth.UserDB + "/" + auth.Username); err == nil {
-		user, _ := ioutil.ReadAll(response.Body)
-		defer response.Body.Close()
+	content["user"] = auth.Username
 
-		if err = json.Unmarshal(user, &caller); err != nil {
-			auth.NewError(http.StatusInternalServerError, "Error retrieving user info")
-		}
-	} else {
-		auth.NewError(http.StatusInternalServerError, "Error retrieving user info")
+	if uri, exists := userData["uri"]; exists {
+		content["uri"] = uri
 	}
 
-	return caller
+	if groups, exists := userData["groups"]; exists {
+		systems = auth.ResolveGroupsToSystems(groups.([]interface{}))
+	}
+
+	if list, exists := userData["systems"].(map[string]interface{}); exists {
+		for system, rights := range list {
+			systems[system] = rights
+		}
+	}
+
+	if len(systems) > 0 {
+		content["systems"] = systems
+	}
+
+	return content
+}
+
+func (auth *Authenticator) FetchUser() (map[string]interface{}, error) {
+	couch := NewCouch(auth.Backend.Server, auth.Backend.UserDB)
+	return couch.Get(auth.Username)
+}
+
+func (auth *Authenticator) ResolveGroupsToSystems(groups []interface{}) map[string]interface{} {
+	couch := NewCouch(auth.Backend.Server, auth.Backend.GroupDB)
+	docs, err := couch.GetMultiple(groups)
+
+	if err != nil {
+		log.Println("Error resolving groups: ", err)
+	}
+
+	var systems = make(map[string]interface{})
+
+	if err == nil {
+		for _, doc := range docs {
+			if systemList, exists := doc.(map[string]interface{})["systems"]; exists {
+				for system, rights := range systemList.(map[string]interface{}) {
+					systems[system] = rights
+				}
+			}
+		}
+	}
+
+	return systems
 }
