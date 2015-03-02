@@ -1,10 +1,15 @@
 package gouncer
 
 import (
+	"crypto"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
+	"io"
+	"math/rand"
 	"regexp"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,6 +21,8 @@ type Credentials struct {
 	Username string
 	Password string
 	Token    string
+	HashAlg  crypto.Hash
+	Secret   string
 }
 
 func (creds *Credentials) ParseAuthHeader(value string) error {
@@ -66,10 +73,49 @@ func (creds *Credentials) SplitBasicAuth(content string) ([]string, error) {
 	}
 }
 
+// DecodeBase64 decodes a base64 string
 func (creds *Credentials) DecodeBase64(content string) (string, error) {
 	if raw, err := base64.StdEncoding.DecodeString(content); err == nil {
 		return string(raw), nil
 	} else {
 		return "", err
+	}
+}
+
+// GenerateSecret uses the password hash the time and a random offset
+// to generate a random secret used to sign the token with.
+func (creds *Credentials) GenerateSecret() {
+	rand.Seed(time.Now().UTC().UnixNano())
+	offset := rand.Intn(255)
+
+	timeSalt := time.Now().UTC().Add(time.Minute * time.Duration(offset)).Format(time.RFC3339)
+	creds.HashAlg = crypto.SHA1
+
+	creds.Secret = creds.GenerateHash(creds.PasswordHash() + timeSalt)
+}
+
+// PasswordHash returns the hashed password.
+func (creds *Credentials) PasswordHash() string {
+	return creds.GenerateHash(creds.Password)
+}
+
+// GenerateHash uses credentials.HashAlg to hash string content
+func (creds *Credentials) GenerateHash(content string) string {
+	alg := creds.HashAlg.New()
+	io.WriteString(alg, content)
+	return hex.EncodeToString(alg.Sum(nil))
+}
+
+// ConfigureUserHashAlg sets the hash algorithm to that in the userObj
+func (creds *Credentials) ResolveHashAlg(hash string) {
+	switch hash {
+	case "sha1":
+		creds.HashAlg = crypto.SHA1
+	case "sha256":
+		creds.HashAlg = crypto.SHA256
+	case "sha384":
+		creds.HashAlg = crypto.SHA384
+	default:
+		creds.HashAlg = crypto.SHA512
 	}
 }
