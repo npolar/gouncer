@@ -34,9 +34,15 @@ func LoadFlags() []cli.Flag {
 			EnvVar: "GOUNCER_SSL_CERT",
 		},
 		cli.StringFlag{
-			Name:   "group, g",
-			Value:  "https://localhost:6984/groups",
-			Usage:  "Set (CouchDB) group database",
+			Name:   "couchdb, db",
+			Value:  "http://localhost:6984",
+			Usage:  "Specify CouchDB address",
+			EnvVar: "GOUNCER_COUCHDB",
+		},
+		cli.StringFlag{
+			Name:   "groupdb, g",
+			Value:  "groups",
+			Usage:  "Set group database",
 			EnvVar: "GOUNCER_GROUP_DB",
 		},
 		cli.StringFlag{
@@ -61,13 +67,15 @@ func LoadFlags() []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:   "userdb, u",
-			Value:  "https://localhost:6984/users",
-			Usage:  "Set (CouchDB) user database.",
+			Value:  "users",
+			Usage:  "Set user database.",
 			EnvVar: "GOUNCER_USER_DB",
 		},
 	}
 }
 
+// StartGouncerServer initializes and starts a new server instance
+// with the provided command line options.
 func StartGouncerServer(c *cli.Context) {
 	CheckSSL(c)
 
@@ -75,9 +83,14 @@ func StartGouncerServer(c *cli.Context) {
 	srv := gouncer.NewServer(":" + c.String("port"))
 	srv.Certificate = c.String("certificate")
 	srv.CertificateKey = c.String("key")
-	srv.Cache = c.StringSlice("memcache")
-	srv.UserDB = c.String("userdb")
-	srv.GroupDB = c.String("group")
+
+	// Configure the server backend
+	srv.Backend = &gouncer.Backend{
+		Server:  c.String("couchdb"),
+		Cache:   srv.NewCache(c.StringSlice("memcache")),
+		UserDB:  c.String("userdb"),
+		GroupDB: c.String("groupdb"),
+	}
 
 	// Transfer version and description info to the server layer
 	srv.Name = c.App.Name
