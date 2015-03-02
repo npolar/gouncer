@@ -1,6 +1,7 @@
 package gouncer
 
 import (
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/rs/cors"
 	"log"
 	"net/http"
@@ -10,16 +11,15 @@ type Server struct {
 	Port           string
 	Certificate    string
 	CertificateKey string
-	Cache          []string
-	GroupDB        string
-	UserDB         string
+	Backend        *Backend
 	Info
 }
 
-type Backends struct {
-	Cache   []string
+type Backend struct {
+	Cache   *memcache.Client
 	GroupDB string
 	UserDB  string
+	Server  string
 }
 
 type Info struct {
@@ -63,9 +63,7 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 	if r.Method == "GET" {
 		// Configure the Authenticator instance
 		authenticator := NewAuthenticator(w, r)
-		authenticator.Cache = srv.Cache
-		authenticator.GroupDB = srv.GroupDB
-		authenticator.UserDB = srv.UserDB
+		authenticator.Backend = srv.Backend
 
 		// Execute a token request
 		authenticator.HandleTokenRequest()
@@ -78,16 +76,16 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		authorizer := NewAuthorizer(w, r)
-		authorizer.Backend = &Backends{
-			Cache:   srv.Cache,
-			UserDB:  srv.UserDB,
-			GroupDB: srv.GroupDB,
-		}
+		authorizer.Backend = srv.Backend
 		authorizer.AuthorizeRequest()
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte("Error 405: Method not allowed\n"))
 	}
+}
+
+func (srv *Server) NewCache(servers []string) *memcache.Client {
+	return memcache.New(servers...)
 }
 
 // @TODO make motd configurable
