@@ -3,7 +3,6 @@ package gouncer
 import (
 	"encoding/json"
 	"github.com/RDux/toki"
-	"github.com/bradfitz/gomemcache/memcache"
 	"io"
 	"io/ioutil"
 	"log"
@@ -13,8 +12,8 @@ import (
 )
 
 type Authorizer struct {
-	Credentials // Anonymous credentials object
-	Backend     *Backends
+	Credentials
+	Backend *Backend
 	ResponseHandler
 }
 
@@ -30,6 +29,7 @@ func NewAuthorizer(w http.ResponseWriter, r *http.Request) *Authorizer {
 func (auth *Authorizer) AuthorizeRequest() {
 	if err := auth.ParseAuthHeader(auth.HttpRequest.Header.Get("Authorization")); err == nil {
 		req := auth.ParseRequestBody(auth.HttpRequest.Body)
+		auth.HttpRequest.Body.Close()
 		auth.ValidateRequest(req)
 	} else {
 		auth.NewError(http.StatusUnauthorized, "Unsupported Authorization method")
@@ -38,66 +38,101 @@ func (auth *Authorizer) AuthorizeRequest() {
 	auth.Respond()
 }
 
+// ValidateRequest checks if the caller has any access rights on the system
 func (auth *Authorizer) ValidateRequest(req map[string]interface{}) {
 	if system, exists := req["system"]; exists {
 		if auth.Token == "" && auth.Password != "" {
-			auth.ResolveUser(system.(string))
+			auth.AuthorizedUser(system.(string))
 		} else {
-			token := toki.NewJsonWebToken()
-			if err := token.Parse(auth.Token); err != nil {
-				auth.NewError(http.StatusUnauthorized, err.Error())
-			}
-
-			username := token.Claim.Content["user"].(string)
-			mc := memcache.New(auth.Backend.Cache...)
-			if item, err := mc.Get(username); err == nil {
-				secret := item.Value
-				if valid, err := token.Valid(string(secret)); valid {
-					accessList := token.Claim.Content["systems"].(map[string]interface{})
-					auth.SystemAccessible(system.(string), accessList)
-
-					// Touch the memcache instance only when token validation succeeds
-					mc.Touch(username, 600)
-				} else {
-					log.Println(err)
-					auth.NewError(http.StatusUnauthorized, err.Error())
-				}
-			} else {
-				log.Println(err)
-				auth.NewError(http.StatusUnauthorized, err.Error())
-			}
+			auth.AuthorizedToken(system.(string))
 		}
 	} else {
 		auth.NewError(http.StatusUnauthorized, "No system info provided")
 	}
 }
 
-func (auth *Authorizer) ResolveUser(system string) {
-	// Hash password
-	if response, err := http.Get(auth.Backend.UserDB + "/" + auth.Username); err == nil {
-		body, err := ioutil.ReadAll(response.Body)
-		defer response.Body.Close()
+// AutorizedUser checks if the user has any access rights for the system
+func (auth *Authorizer) AuthorizedUser(system string) {
+	userInfo, err := auth.FetchUser()
+
+	if err == nil {
+		auth.ResolveHashAlg(userInfo["hash"].(string))
+
+		if auth.PasswordHash() == userInfo["password"].(string) {
+			var accessList = make(map[string]interface{})
+
+			if groups, exists := userInfo["groups"].([]interface{}); exists {
+				accessList = auth.ResolveGroupsToSystems(groups)
+			}
+
+			if systems, exists := userInfo["systems"]; exists {
+				for system, rights := range systems.(map[string]interface{}) {
+					accessList[system] = rights
+				}
+			}
+
+			auth.SystemAccessible(system, accessList)
+		}
+	}
+}
+
+// AuthorizedToken checks if the token has access rights for the system
+func (auth *Authorizer) AuthorizedToken(system string) {
+	token := toki.NewJsonWebToken()
+	err := token.Parse(auth.Token)
+
+	if err == nil {
+		username := token.Claim.Content["user"].(string)
+		item, cerr := auth.Backend.Cache.Get(username)
+		err = cerr
 
 		if err == nil {
-			var obj = make(map[string]interface{})
-			json.Unmarshal(body, &obj)
-			if tokenizer, err := NewTokenizer(auth.Password, obj); err == nil {
+			secret := string(item.Value)
 
-				if tokenizer.Authorized() {
-					tokenizer.GroupDB = auth.Backend.GroupDB
-					// Resolve groups into systems
-					accessList := tokenizer.BulkResolveGroupsToSys()
+			valid, verr := token.Valid(secret)
+			err = verr
 
-					// Merge the systems in the user obj with those in the groups
-					for key, val := range obj["systems"].(map[string]interface{}) {
-						accessList[key] = val
-					}
+			if valid {
+				accessList := token.Claim.Content["systems"].(map[string]interface{})
+				auth.SystemAccessible(system, accessList)
 
-					auth.SystemAccessible(system, accessList)
+				// Touch the memcache instance only when token validation succeeds
+				auth.Backend.Cache.Touch(username, 600)
+			}
+		}
+	}
+
+	if err != nil {
+		auth.NewError(http.StatusUnauthorized, err.Error())
+	}
+}
+
+func (auth *Authorizer) FetchUser() (map[string]interface{}, error) {
+	couch := NewCouch(auth.Backend.Server, auth.Backend.UserDB)
+	return couch.Get(auth.Username)
+}
+
+func (auth *Authorizer) ResolveGroupsToSystems(groups []interface{}) map[string]interface{} {
+	couch := NewCouch(auth.Backend.Server, auth.Backend.GroupDB)
+	docs, err := couch.GetMultiple(groups)
+
+	if err != nil {
+		log.Println("Error resolving groups: ", err)
+	}
+
+	var systems = make(map[string]interface{})
+
+	if err == nil {
+		for _, doc := range docs {
+			if systemList, exists := doc.(map[string]interface{})["systems"]; exists {
+				for system, rights := range systemList.(map[string]interface{}) {
+					systems[system] = rights
 				}
 			}
 		}
 	}
+
+	return systems
 }
 
 func (auth *Authorizer) ParseRequestBody(body io.ReadCloser) map[string]interface{} {
