@@ -13,15 +13,14 @@ import (
 
 type Authorizer struct {
 	Credentials
-	Backend *Backend
-	ResponseHandler
+	Backend    *Backend
+	Expiration int32 // Token expriation time. Used on touch.
+	*ResponseHandler
 }
 
-func NewAuthorizer(w http.ResponseWriter, r *http.Request) *Authorizer {
+func NewAuthorizer(h *ResponseHandler) *Authorizer {
 	a := &Authorizer{}
-	a.Writer = w
-	a.HttpRequest = r
-	a.Response = &AuthResponse{}
+	a.ResponseHandler = h
 
 	return a
 }
@@ -97,7 +96,7 @@ func (auth *Authorizer) AuthorizedToken(system string) {
 				auth.SystemAccessible(system, accessList)
 
 				// Touch the memcache instance only when token validation succeeds
-				auth.Backend.Cache.Touch(username, 600)
+				auth.Backend.Cache.Touch(username, auth.Expiration)
 			}
 		}
 	}
@@ -156,7 +155,10 @@ func (auth *Authorizer) SystemAccessible(system string, accessList map[string]in
 		sysUrl, _ := url.Parse(accessItem)
 		reqUrl, _ := url.Parse(system)
 		if sysUrl.Host == reqUrl.Host {
-			if auth.PathsMatch(sysUrl.Path, reqUrl.Path) {
+			if auth.ExactPathMatch(sysUrl.Path, reqUrl.Path) {
+				match = true
+				r = rights
+			} else if r == nil && auth.PathsMatch(sysUrl.Path, reqUrl.Path) {
 				match = true
 				r = rights
 			}
@@ -168,6 +170,21 @@ func (auth *Authorizer) SystemAccessible(system string, accessList map[string]in
 	} else {
 		auth.NewError(http.StatusUnauthorized, "You do not have access to this system")
 	}
+}
+
+func (auth *Authorizer) ExactPathMatch(pathA string, pathB string) bool {
+	segsA := strings.Split(pathA, "/")
+	segsB := strings.Split(pathB, "/")
+
+	match := true
+
+	for i, seg := range segsA {
+		if segsB[i] != seg {
+			match = false
+		}
+	}
+
+	return match
 }
 
 func (auth *Authorizer) PathsMatch(pathA string, pathB string) bool {
