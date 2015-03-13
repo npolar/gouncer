@@ -18,6 +18,7 @@ type Authorizer struct {
 	*ResponseHandler
 }
 
+// NewAuthorizer configures the Authorizer and returns a pointer
 func NewAuthorizer(h *ResponseHandler) *Authorizer {
 	a := &Authorizer{}
 	a.ResponseHandler = h
@@ -25,6 +26,7 @@ func NewAuthorizer(h *ResponseHandler) *Authorizer {
 	return a
 }
 
+// AuthorizeRequest handles authorization checking with the provided system and credentials
 func (auth *Authorizer) AuthorizeRequest() {
 	if err := auth.ParseAuthHeader(auth.HttpRequest.Header.Get("Authorization")); err == nil {
 		req := auth.ParseRequestBody(auth.HttpRequest.Body)
@@ -106,11 +108,14 @@ func (auth *Authorizer) AuthorizedToken(system string) {
 	}
 }
 
+// FetchUser gets the user info from the database
 func (auth *Authorizer) FetchUser() (map[string]interface{}, error) {
 	couch := NewCouch(auth.Backend.Server, auth.Backend.UserDB)
 	return couch.Get(auth.Username)
 }
 
+// ResolveGroupsToSystems checks the group info for the user and translates it into a
+// a list of systems that user has access to with the access rights they have on that system
 func (auth *Authorizer) ResolveGroupsToSystems(groups []interface{}) map[string]interface{} {
 	couch := NewCouch(auth.Backend.Server, auth.Backend.GroupDB)
 	docs, err := couch.GetMultiple(groups)
@@ -134,6 +139,7 @@ func (auth *Authorizer) ResolveGroupsToSystems(groups []interface{}) map[string]
 	return systems
 }
 
+// ParseRequestBody parses the json body of the authorization request
 func (auth *Authorizer) ParseRequestBody(body io.ReadCloser) map[string]interface{} {
 	raw, err := ioutil.ReadAll(body)
 	defer body.Close()
@@ -148,6 +154,8 @@ func (auth *Authorizer) ParseRequestBody(body io.ReadCloser) map[string]interfac
 	return response
 }
 
+// SystemAccessible will check the users system list against the system we are authorizing.
+// If a match is found (exact|wildacrd) we will set the AccessRights in the auth.Response
 func (auth *Authorizer) SystemAccessible(system string, accessList map[string]interface{}) {
 	match := false
 	var r interface{}
@@ -158,7 +166,7 @@ func (auth *Authorizer) SystemAccessible(system string, accessList map[string]in
 			if auth.ExactPathMatch(sysUrl.Path, reqUrl.Path) {
 				match = true
 				r = rights
-			} else if r == nil && auth.PathsMatch(sysUrl.Path, reqUrl.Path) {
+			} else if r == nil && auth.WildcardPathMatch(sysUrl.Path, reqUrl.Path) {
 				match = true
 				r = rights
 			}
@@ -172,22 +180,13 @@ func (auth *Authorizer) SystemAccessible(system string, accessList map[string]in
 	}
 }
 
+// ExactPathMatch checks if the two paths are the same
 func (auth *Authorizer) ExactPathMatch(pathA string, pathB string) bool {
-	segsA := strings.Split(pathA, "/")
-	segsB := strings.Split(pathB, "/")
-
-	match := true
-
-	for i, seg := range segsA {
-		if segsB[i] != seg {
-			match = false
-		}
-	}
-
-	return match
+	return pathA == pathB
 }
 
-func (auth *Authorizer) PathsMatch(pathA string, pathB string) bool {
+// WildcardPathMatch checks if a path partially matches and ends in a wildcard
+func (auth *Authorizer) WildcardPathMatch(pathA string, pathB string) bool {
 	segsA := strings.Split(pathA, "/")
 	segsB := strings.Split(pathB, "/")
 
