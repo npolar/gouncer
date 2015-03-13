@@ -85,13 +85,15 @@ func (creds *Credentials) DecodeBase64(content string) (string, error) {
 // GenerateSecret uses the password hash the time and a random offset
 // to generate a random secret used to sign the token with.
 func (creds *Credentials) GenerateSecret() {
-	rand.Seed(time.Now().UTC().UnixNano())
-	offset := rand.Intn(255)
-
-	timeSalt := time.Now().UTC().Add(time.Minute * time.Duration(offset)).Format(time.RFC3339)
 	creds.HashAlg = crypto.SHA1
+	creds.Secret = creds.GenerateHash(creds.PasswordHash() + creds.TimeSalt())
+}
 
-	creds.Secret = creds.GenerateHash(creds.PasswordHash() + timeSalt)
+func (creds *Credentials) TimeSalt() string {
+	rand.Seed(time.Now().UTC().UnixNano())
+	offset := rand.Intn(100000)
+
+	return time.Now().UTC().Add(time.Minute * time.Duration(offset)).Format(time.RFC3339)
 }
 
 // PasswordHash returns the hashed password.
