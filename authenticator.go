@@ -9,15 +9,15 @@ import (
 
 type Authenticator struct {
 	Credentials
-	Backend *Backend
-	ResponseHandler
+	Backend    *Backend
+	Expiration int32 // Token expiration time
+	TokenAlg   string
+	*ResponseHandler
 }
 
-func NewAuthenticator(w http.ResponseWriter, r *http.Request) *Authenticator {
+func NewAuthenticator(h *ResponseHandler) *Authenticator {
 	a := &Authenticator{}
-	a.Writer = w
-	a.HttpRequest = r
-	a.Response = &AuthResponse{}
+	a.ResponseHandler = h
 
 	return a
 }
@@ -42,6 +42,7 @@ func (auth *Authenticator) GenerateToken() {
 		if userInfo["password"].(string) == auth.PasswordHash() {
 			auth.GenerateSecret()
 			tokenizer := toki.NewJsonWebToken()
+			tokenizer.TokenAlgorithm = auth.ResolveTokenAlgorithm()
 
 			// Set the token contents
 			tokenizer.Claim.Content = auth.TokenBody(userInfo)
@@ -69,9 +70,20 @@ func (auth *Authenticator) GenerateToken() {
 	}
 }
 
+func (auth *Authenticator) ResolveTokenAlgorithm() *toki.Algorithm {
+	switch auth.TokenAlg {
+	case "HS384":
+		return toki.HS384()
+	case "HS512":
+		return toki.HS512()
+	default:
+		return toki.HS256()
+	}
+}
+
 // CacheTokenInfo caches the username and secret for validation purposes
 func (auth *Authenticator) CacheTokenInfo(secret string) error {
-	return auth.Backend.Cache.Set(&memcache.Item{Key: auth.Username, Value: []byte(secret), Expiration: 1200})
+	return auth.Backend.Cache.Set(&memcache.Item{Key: auth.Username, Value: []byte(secret), Expiration: auth.Expiration})
 }
 
 // Generate the contents that will be sent in the tokens claim body
