@@ -35,6 +35,7 @@ func NewServer(port string) *Server {
 	return &Server{Port: port}
 }
 
+// Start sets up gouncers routes and handlers and then starts a TLS server
 func (srv *Server) Start() {
 	// Confiugre CORS
 	corsRules := cors.New(cors.Options{
@@ -78,6 +79,7 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 
 }
 
+// AuthorizationHandler checks the http method and delegates the request to the authorizer
 func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) {
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "POST" {
@@ -95,10 +97,12 @@ func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) 
 
 }
 
+// NewCache starts a new memcache client for the provided servers
 func (srv *Server) NewCache(servers []string) *memcache.Client {
 	return memcache.New(servers...)
 }
 
+// ConfigureHandler sets up the response handler
 func (srv *Server) ConfigureHandler(w http.ResponseWriter, r *http.Request) *ResponseHandler {
 	handler := NewResponseHandler(w, r)
 	handler.JsonP = srv.JsonP
@@ -107,6 +111,7 @@ func (srv *Server) ConfigureHandler(w http.ResponseWriter, r *http.Request) *Res
 }
 
 // @TODO make motd configurable
+// InfoHandler takes care of root requests and displays auth server info as the requested format
 func (srv *Server) InfoHandler(w http.ResponseWriter, r *http.Request) {
 	handler := srv.ConfigureHandler(w, r)
 	handler.Response.Info = &srv.Info
