@@ -9,9 +9,12 @@ import (
 
 type Server struct {
 	Port           string
+	Backend        *Backend
 	Certificate    string
 	CertificateKey string
-	Backend        *Backend
+	TokenAlg       string
+	Expiration     int32
+	JsonP          bool
 	Info
 }
 
@@ -23,15 +26,13 @@ type Backend struct {
 }
 
 type Info struct {
-	Version string
-	Name    string
-	Usage   string
+	Version     string `json:"version,omitempty" xml:",omitempty"`
+	Name        string `json:"name,omitempty" xml:",omitempty"`
+	Description string `json:"description,omitempty" xml:",omitempty"`
 }
 
 func NewServer(port string) *Server {
-	return &Server{
-		Port: port,
-	}
+	return &Server{Port: port}
 }
 
 func (srv *Server) Start() {
@@ -60,36 +61,55 @@ func (srv *Server) Start() {
 
 // Authentication handler checks the method and delegates a token request
 func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request) {
+	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "GET" {
-		// Configure the Authenticator instance
-		authenticator := NewAuthenticator(w, r)
+		// Configure the Authenticator
+		authenticator := NewAuthenticator(handler)
 		authenticator.Backend = srv.Backend
+		authenticator.TokenAlg = srv.TokenAlg
+		authenticator.Expiration = srv.Expiration
 
 		// Execute a token request
 		authenticator.HandleTokenRequest()
 	} else {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write([]byte("Error 405: Method not allowed\n"))
+		handler.NewError(http.StatusMethodNotAllowed, "")
+		handler.Respond()
 	}
+
 }
 
 func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) {
+	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "POST" {
-		authorizer := NewAuthorizer(w, r)
+		// Configure the Authorizer
+		authorizer := NewAuthorizer(handler)
 		authorizer.Backend = srv.Backend
+		authorizer.Expiration = srv.Expiration
+
+		// Handle authorization
 		authorizer.AuthorizeRequest()
 	} else {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write([]byte("Error 405: Method not allowed\n"))
+		handler.NewError(http.StatusMethodNotAllowed, "")
+		handler.Respond()
 	}
+
 }
 
 func (srv *Server) NewCache(servers []string) *memcache.Client {
 	return memcache.New(servers...)
 }
 
+func (srv *Server) ConfigureHandler(w http.ResponseWriter, r *http.Request) *ResponseHandler {
+	handler := NewResponseHandler(w, r)
+	handler.JsonP = srv.JsonP
+
+	return handler
+}
+
 // @TODO make motd configurable
 func (srv *Server) InfoHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write([]byte("{\"name\":\"" + srv.Name + "\", \"version\": \"" + srv.Version + "\", \"description\": \"" + srv.Usage + "\", \"message\": \"g(B)ouncer - Check people at the door!\"}"))
+	handler := srv.ConfigureHandler(w, r)
+	handler.Response.Info = &srv.Info
+
+	handler.Respond()
 }
