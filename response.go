@@ -3,9 +3,9 @@ package gouncer
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 type ResponseHandler struct {
@@ -13,17 +13,27 @@ type ResponseHandler struct {
 	HttpRequest *http.Request
 	Response    *AuthResponse
 	Error       *AuthError
+	JsonP       bool
 }
 
 type AuthResponse struct {
 	Token        string      `json:"token,omitempty" xml:"Token,omitempty"`
 	AccessRights interface{} `json:"rights,omitempty" xml:"Access>Right,omitempty"`
+	Info         *Info       `json:"info,omitempty" xml:",omitempty"`
 }
 
 type AuthError struct {
 	Status    int    `json:"status,omitempty" xml:"Status,attr,omitempty"`
 	HttpError string `json:"http_error,omitempty" xml:"Error,omitempty"`
 	Message   string `json:"message,omitempty" xml:"Message,omitempty"`
+}
+
+func NewResponseHandler(w http.ResponseWriter, r *http.Request) *ResponseHandler {
+	return &ResponseHandler{
+		Response:    &AuthResponse{},
+		Writer:      w,
+		HttpRequest: r,
+	}
 }
 
 // NewError loads initial data into the AuthError structure
@@ -48,6 +58,8 @@ func ResolveStatus(status int) string {
 		return "Bad Request"
 	case http.StatusInternalServerError:
 		return "Internal Server Error"
+	case http.StatusMethodNotAllowed:
+		return "Method not allowed"
 	default:
 		return "Not defined in system"
 	}
@@ -55,34 +67,28 @@ func ResolveStatus(status int) string {
 
 func (h *ResponseHandler) Respond() {
 	switch h.HttpRequest.Header.Get("Accept") {
-	case "application/json":
-		h.RespondJson()
+	case "text/plain":
+		h.RespondText()
 	case "application/xml", "text/xml":
 		h.RespondXml()
 	default:
-		h.RespondText()
+		h.RespondJson()
 	}
 }
 
 func (h *ResponseHandler) RespondText() {
-	var body []byte
 	if h.Error == nil {
 		if h.Response.Token != "" {
-			body = []byte(h.Response.Token)
+			fmt.Fprintf(h.Writer, "%v", h.Response.Token)
+		} else if h.Response.AccessRights != nil {
+			fmt.Fprintf(h.Writer, "%v", h.Response.AccessRights)
 		} else {
-			var rights []string
-			for _, val := range h.Response.AccessRights.([]interface{}) {
-				rights = append(rights, val.(string))
-			}
-			body = []byte(strings.Join(rights, ","))
+			fmt.Fprintf(h.Writer, "%+v", h.Response.Info)
 		}
 	} else {
 		h.Writer.WriteHeader(h.Error.Status)
-		body = []byte(h.Error.String())
+		h.Writer.Write([]byte(h.Error.String()))
 	}
-
-	h.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	h.Writer.Write(body)
 }
 
 func (h *ResponseHandler) RespondJson() {
@@ -94,7 +100,12 @@ func (h *ResponseHandler) RespondJson() {
 		body, _ = json.Marshal(h.Error)
 	}
 	h.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-	h.Writer.Write(body)
+
+	if callback := h.HttpRequest.FormValue("callback"); callback != "" && h.JsonP {
+		fmt.Fprintf(h.Writer, "%s(%s)", callback, body)
+	} else {
+		h.Writer.Write(body)
+	}
 }
 
 func (h *ResponseHandler) RespondXml() {
