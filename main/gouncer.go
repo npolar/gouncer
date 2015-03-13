@@ -16,7 +16,7 @@ func InitGouncer() {
 	gouncer := cli.NewApp()
 	gouncer.Version = "0.0.1"
 	gouncer.Name = "gouncer"
-	gouncer.Usage = "A high performance auth API."
+	gouncer.Usage = "A high performance auth API"
 	gouncer.Author = "Ruben Dens"
 	gouncer.Email = "ruben.dens@npolar.no"
 	gouncer.Flags = LoadFlags()
@@ -29,6 +29,12 @@ func InitGouncer() {
 func LoadFlags() []cli.Flag {
 	return []cli.Flag{
 		cli.StringFlag{
+			Name:   "algorithm, a",
+			Value:  "HS256",
+			Usage:  "Specify token signing algorithm",
+			EnvVar: "Gouncer_ALGORITHM",
+		},
+		cli.StringFlag{
 			Name:   "certificate, c",
 			Usage:  "Specify ssl certificate. [REQUIRED]",
 			EnvVar: "GOUNCER_SSL_CERT",
@@ -39,11 +45,21 @@ func LoadFlags() []cli.Flag {
 			Usage:  "Specify CouchDB address",
 			EnvVar: "GOUNCER_COUCHDB",
 		},
+		cli.IntFlag{
+			Name:   "expiration, e",
+			Value:  1200,
+			Usage:  "Token expiration time in seconds.",
+			EnvVar: "GOUNCER_TOKEN_EXPIRE",
+		},
 		cli.StringFlag{
 			Name:   "groupdb, g",
 			Value:  "groups",
 			Usage:  "Set group database",
 			EnvVar: "GOUNCER_GROUP_DB",
+		},
+		cli.BoolFlag{
+			Name:  "jsonp, j",
+			Usage: "Enable JsonP support",
 		},
 		cli.StringFlag{
 			Name:   "key, k",
@@ -83,6 +99,9 @@ func StartGouncerServer(c *cli.Context) {
 	srv := gouncer.NewServer(":" + c.String("port"))
 	srv.Certificate = c.String("certificate")
 	srv.CertificateKey = c.String("key")
+	srv.Expiration = int32(c.Int("expiration"))
+	srv.JsonP = c.Bool("jsonp")
+	srv.TokenAlg = c.String("algorithm")
 
 	// Configure the server backend
 	srv.Backend = &gouncer.Backend{
@@ -95,7 +114,7 @@ func StartGouncerServer(c *cli.Context) {
 	// Transfer version and description info to the server layer
 	srv.Name = c.App.Name
 	srv.Version = c.App.Version
-	srv.Usage = c.App.Usage
+	srv.Description = c.App.Usage
 
 	// Print the awesome ASCII banner
 	PrintBanner()
