@@ -1,8 +1,8 @@
 package gouncer
 
 import (
-	"github.com/RDux/toki"
 	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/npolar/toki"
 	"log"
 	"net/http"
 )
@@ -89,7 +89,7 @@ func (auth *Authenticator) CacheTokenInfo(secret string) error {
 // Generate the contents that will be sent in the tokens claim body
 func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string]interface{} {
 	var content = make(map[string]interface{})
-	var systems = make(map[string]interface{})
+	var systems []interface{}
 
 	content["user"] = auth.Username
 
@@ -101,10 +101,8 @@ func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string
 		systems = auth.ResolveGroupsToSystems(groups.([]interface{}))
 	}
 
-	if list, exists := userData["systems"].(map[string]interface{}); exists {
-		for system, rights := range list {
-			systems[system] = rights
-		}
+	if list, exists := userData["systems"].([]interface{}); exists {
+		systems = auth.ResolveDuplicateSystems(list, systems)
 	}
 
 	if len(systems) > 0 {
@@ -119,7 +117,7 @@ func (auth *Authenticator) FetchUser() (map[string]interface{}, error) {
 	return couch.Get(auth.Username)
 }
 
-func (auth *Authenticator) ResolveGroupsToSystems(groups []interface{}) map[string]interface{} {
+func (auth *Authenticator) ResolveGroupsToSystems(groups []interface{}) []interface{} {
 	couch := NewCouch(auth.Backend.Server, auth.Backend.GroupDB)
 	docs, err := couch.GetMultiple(groups)
 
@@ -127,15 +125,35 @@ func (auth *Authenticator) ResolveGroupsToSystems(groups []interface{}) map[stri
 		log.Println("Error resolving groups: ", err)
 	}
 
-	var systems = make(map[string]interface{})
+	var systems []interface{}
 
 	if err == nil {
 		for _, doc := range docs {
 			if systemList, exists := doc.(map[string]interface{})["systems"]; exists {
-				for system, rights := range systemList.(map[string]interface{}) {
-					systems[system] = rights
-				}
+				systems = systemList.([]interface{})
 			}
+		}
+	}
+
+	return systems
+}
+
+func (auth *Authenticator) ResolveDuplicateSystems(userSystems []interface{}, systems []interface{}) []interface{} {
+	for l, uSys := range userSystems {
+		accessible := true
+
+		// Check if the system already exists and override if found
+		for i, system := range systems {
+			if system.(map[string]interface{})["uri"] == uSys.(map[string]interface{})["uri"] {
+				systems[i] = uSys
+				userSystems = append(userSystems[:l], userSystems[l+1:]...) // When overriding remove the item from the list
+				accessible = false
+			}
+		}
+
+		// If non existent append the system into the list
+		if accessible {
+			systems = append(systems, uSys)
 		}
 	}
 
