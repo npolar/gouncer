@@ -2,7 +2,7 @@ package gouncer
 
 import (
 	"encoding/json"
-	"github.com/RDux/toki"
+	"github.com/npolar/toki"
 	"io"
 	"io/ioutil"
 	"log"
@@ -60,16 +60,14 @@ func (auth *Authorizer) AuthorizedUser(system string) {
 		auth.ResolveHashAlg(userInfo["hash"].(string))
 
 		if auth.PasswordHash() == userInfo["password"].(string) {
-			var accessList = make(map[string]interface{})
+			var accessList []interface{}
 
 			if groups, exists := userInfo["groups"].([]interface{}); exists {
 				accessList = auth.ResolveGroupsToSystems(groups)
 			}
 
-			if systems, exists := userInfo["systems"]; exists {
-				for system, rights := range systems.(map[string]interface{}) {
-					accessList[system] = rights
-				}
+			if list, exists := userInfo["systems"].([]interface{}); exists {
+				accessList = auth.ResolveDuplicateSystems(list, accessList)
 			}
 
 			auth.SystemAccessible(system, accessList)
@@ -94,7 +92,7 @@ func (auth *Authorizer) AuthorizedToken(system string) {
 			err = verr
 
 			if valid {
-				accessList := token.Claim.Content["systems"].(map[string]interface{})
+				accessList := token.Claim.Content["systems"].([]interface{})
 				auth.SystemAccessible(system, accessList)
 
 				// Touch the memcache instance only when token validation succeeds
@@ -116,7 +114,7 @@ func (auth *Authorizer) FetchUser() (map[string]interface{}, error) {
 
 // ResolveGroupsToSystems checks the group info for the user and translates it into a
 // a list of systems that user has access to with the access rights they have on that system
-func (auth *Authorizer) ResolveGroupsToSystems(groups []interface{}) map[string]interface{} {
+func (auth *Authorizer) ResolveGroupsToSystems(groups []interface{}) []interface{} {
 	couch := NewCouch(auth.Backend.Server, auth.Backend.GroupDB)
 	docs, err := couch.GetMultiple(groups)
 
@@ -124,15 +122,35 @@ func (auth *Authorizer) ResolveGroupsToSystems(groups []interface{}) map[string]
 		log.Println("Error resolving groups: ", err)
 	}
 
-	var systems = make(map[string]interface{})
+	var systems []interface{}
 
 	if err == nil {
 		for _, doc := range docs {
 			if systemList, exists := doc.(map[string]interface{})["systems"]; exists {
-				for system, rights := range systemList.(map[string]interface{}) {
-					systems[system] = rights
-				}
+				systems = systemList.([]interface{})
 			}
+		}
+	}
+
+	return systems
+}
+
+func (auth *Authorizer) ResolveDuplicateSystems(userSystems []interface{}, systems []interface{}) []interface{} {
+	for l, uSys := range userSystems {
+		accessible := true
+
+		// Check if the system already exists and override if found
+		for i, system := range systems {
+			if system.(map[string]interface{})["uri"] == uSys.(map[string]interface{})["uri"] {
+				systems[i] = uSys
+				userSystems = append(userSystems[:l], userSystems[l+1:]...) // When overriding remove the item from the list
+				accessible = false
+			}
+		}
+
+		// If non existent append the system into the list
+		if accessible {
+			systems = append(systems, uSys)
 		}
 	}
 
@@ -156,19 +174,19 @@ func (auth *Authorizer) ParseRequestBody(body io.ReadCloser) map[string]interfac
 
 // SystemAccessible will check the users system list against the system we are authorizing.
 // If a match is found (exact|wildacrd) we will set the AccessRights in the auth.Response
-func (auth *Authorizer) SystemAccessible(system string, accessList map[string]interface{}) {
+func (auth *Authorizer) SystemAccessible(system string, accessList []interface{}) {
 	match := false
 	var r interface{}
-	for accessItem, rights := range accessList {
-		sysUrl, _ := url.Parse(accessItem)
+	for _, accessItem := range accessList {
+		sysUrl, _ := url.Parse(accessItem.(map[string]interface{})["uri"].(string))
 		reqUrl, _ := url.Parse(system)
 		if sysUrl.Host == reqUrl.Host {
 			if auth.ExactPathMatch(sysUrl.Path, reqUrl.Path) {
 				match = true
-				r = rights
+				r = accessItem.(map[string]interface{})["rights"]
 			} else if r == nil && auth.WildcardPathMatch(sysUrl.Path, reqUrl.Path) {
 				match = true
-				r = rights
+				r = accessItem.(map[string]interface{})["rights"]
 			}
 		}
 	}
