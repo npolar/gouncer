@@ -32,7 +32,7 @@ func LoadFlags() []cli.Flag {
 			Name:   "algorithm, a",
 			Value:  "HS256",
 			Usage:  "Specify token signing algorithm",
-			EnvVar: "Gouncer_ALGORITHM",
+			EnvVar: "GOUNCER_ALGORITHM",
 		},
 		cli.StringFlag{
 			Name:   "certificate, c",
