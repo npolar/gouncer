@@ -52,14 +52,16 @@ func (creds *Credentials) ParseBasicAuth(basicAuth string) error {
 	if credString, err := creds.DecodeBase64(basicAuth); err == nil {
 		segs, err := creds.SplitBasicAuth(credString)
 
-		if err != nil {
-			return err
+		if err == nil {
+			if len(segs[0]) > 0 && len(segs[1]) > 0 {
+				creds.Username = segs[0]
+				creds.Password = segs[1]
+			} else {
+				err = errors.New("Empty password field")
+			}
 		}
 
-		creds.Username = segs[0]
-		creds.Password = segs[1]
-
-		return nil
+		return err
 	} else {
 		return err
 	}
