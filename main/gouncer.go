@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/RDux/gouncer"
 	"github.com/codegangsta/cli"
+	"github.com/npolar/gouncer"
 	"log"
 	"os"
 )
