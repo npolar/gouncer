@@ -39,10 +39,9 @@ func NewServer(port string) *Server {
 func (srv *Server) Start() {
 	// Confiugre CORS
 	corsRules := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowCredentials: true,
-		AllowedMethods:   []string{"POST", "GET", "HEAD", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization", "Origin"},
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"POST", "GET", "HEAD", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Content-Type", "Authorization", "Origin"},
 	})
 
 	// Wrap the http handlers in a cors handler
