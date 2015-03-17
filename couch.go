@@ -3,6 +3,7 @@ package gouncer
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -32,6 +33,11 @@ func (couch *CouchDB) Get(id string) (map[string]interface{}, error) {
 	defer response.Body.Close() // Close the response body on return
 
 	var doc = make(map[string]interface{})
+
+	if response.StatusCode != 200 {
+		return doc, errors.New(response.Status)
+	}
+
 	if err == nil {
 		doc, err = couch.parseResponse(response.Body)
 	}
