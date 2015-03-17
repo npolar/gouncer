@@ -91,7 +91,9 @@ func (couch *CouchDB) parseBulkResponse(body io.ReadCloser) ([]interface{}, erro
 	if err == nil {
 		// Loop over each row and grab the doc contents
 		for _, row := range bulk["rows"].([]interface{}) {
-			docs = append(docs, row.(map[string]interface{})["doc"])
+			if doc, exists := row.(map[string]interface{})["doc"]; exists {
+				docs = append(docs, doc)
+			}
 		}
 	}
 
