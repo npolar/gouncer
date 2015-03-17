@@ -30,15 +30,16 @@ func NewCouch(server string, database string) *CouchDB {
 // Get retrieves a single document from CouchDB based on the provided id
 func (couch *CouchDB) Get(id string) (map[string]interface{}, error) {
 	response, err := http.Get(couch.url() + "/" + id)
-	defer response.Body.Close() // Close the response body on return
 
 	var doc = make(map[string]interface{})
 
-	if response.StatusCode != 200 {
-		return doc, errors.New(response.Status)
-	}
-
 	if err == nil {
+		defer response.Body.Close() // Close the response body on return
+
+		if response.StatusCode != 200 {
+			return doc, errors.New(response.Status)
+		}
+
 		doc, err = couch.parseResponse(response.Body)
 	}
 
@@ -50,9 +51,9 @@ func (couch *CouchDB) GetMultiple(ids interface{}) ([]interface{}, error) {
 	body, err := couch.generateBulkBody(ids)
 
 	response, err := http.Post(couch.bulkUrl(), "application/json", bytes.NewReader(body))
-	defer response.Body.Close() // Close the response body on return
 
 	if err == nil {
+		defer response.Body.Close() // Close the response body on return
 		return couch.parseBulkResponse(response.Body)
 	}
 
