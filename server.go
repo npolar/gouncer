@@ -42,6 +42,7 @@ func (srv *Server) Start() {
 		AllowedOrigins:   []string{"*"},
 		AllowCredentials: true,
 		AllowedMethods:   []string{"POST", "GET", "HEAD", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization", "Origin"},
 	})
 
 	// Wrap the http handlers in a cors handler
