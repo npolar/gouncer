@@ -2,6 +2,7 @@ package gouncer
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/npolar/toki"
 	"io"
 	"io/ioutil"
@@ -109,7 +110,13 @@ func (auth *Authorizer) AuthorizedToken(system string) {
 // FetchUser gets the user info from the database
 func (auth *Authorizer) FetchUser() (map[string]interface{}, error) {
 	couch := NewCouch(auth.Backend.Server, auth.Backend.UserDB)
-	return couch.Get(auth.Username)
+	doc, err := couch.Get(auth.Username)
+
+	if err != nil {
+		err = errors.New("Error retrieving user info")
+	}
+
+	return doc, err
 }
 
 // ResolveGroupsToSystems checks the group info for the user and translates it into a

@@ -1,6 +1,7 @@
 package gouncer
 
 import (
+	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/npolar/toki"
 	"log"
@@ -114,7 +115,13 @@ func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string
 
 func (auth *Authenticator) FetchUser() (map[string]interface{}, error) {
 	couch := NewCouch(auth.Backend.Server, auth.Backend.UserDB)
-	return couch.Get(auth.Username)
+	doc, err := couch.Get(auth.Username)
+
+	if err != nil {
+		err = errors.New("Error retrieving user info")
+	}
+
+	return doc, err
 }
 
 func (auth *Authenticator) ResolveGroupsToSystems(groups []interface{}) []interface{} {
