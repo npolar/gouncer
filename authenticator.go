@@ -73,6 +73,8 @@ func (auth *Authenticator) GenerateToken() {
 
 func (auth *Authenticator) ResolveTokenAlgorithm() *toki.Algorithm {
 	switch auth.TokenAlg {
+	case "none":
+		return toki.NoAlg()
 	case "HS384":
 		return toki.HS384()
 	case "HS512":
