@@ -40,14 +40,14 @@ func (creds *Credentials) ParseAuthHeader(value string) error {
 	return errors.New("Unsupported credsorization method")
 }
 
-func (creds *Credentials) BasicAuth(credsHeader string) (bool, *regexp.Regexp) {
+func (creds *Credentials) BasicAuth(authHeader string) (bool, *regexp.Regexp) {
 	rxp := regexp.MustCompile(basicPattern)
-	return rxp.MatchString(credsHeader), rxp
+	return rxp.MatchString(authHeader), rxp
 }
 
-func (creds *Credentials) BearerToken(credsHeader string) (bool, *regexp.Regexp) {
+func (creds *Credentials) BearerToken(authHeader string) (bool, *regexp.Regexp) {
 	rxp := regexp.MustCompile(bearerPattern)
-	return rxp.MatchString(credsHeader), rxp
+	return rxp.MatchString(authHeader), rxp
 }
 
 func (creds *Credentials) ParseBasicAuth(basicAuth string) error {
