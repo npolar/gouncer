@@ -57,7 +57,7 @@ func (auth *Authorizer) AuthorizedUser(system string) {
 	if err == nil {
 		auth.ResolveHashAlg(userInfo["hash"].(string))
 
-		valid, verr := auth.ValidatePassword(userInfo["password"].(string))
+		valid, verr := auth.ValidatePasswordHash(userInfo["password"].(string))
 		err = verr
 
 		if valid {
