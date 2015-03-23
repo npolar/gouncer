@@ -18,7 +18,7 @@ A high speed auth server written in go
 
 #### Compilation
 
-- **Staticly linked**
+- **Staticlly linked**
 
 ```shell
   go install && go build -a -tags netgo -installsuffix netgo main/gouncer.go
