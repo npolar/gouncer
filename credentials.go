@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"log"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -23,6 +24,7 @@ type Credentials struct {
 	Token    string
 	HashAlg  crypto.Hash
 	Secret   string
+	Backend  *Backend
 }
 
 func (creds *Credentials) ParseAuthHeader(value string) error {
@@ -35,17 +37,17 @@ func (creds *Credentials) ParseAuthHeader(value string) error {
 		return nil
 	}
 
-	return errors.New("Unsupported authorization method")
+	return errors.New("Unsupported credsorization method")
 }
 
-func (creds *Credentials) BasicAuth(authHeader string) (bool, *regexp.Regexp) {
+func (creds *Credentials) BasicAuth(credsHeader string) (bool, *regexp.Regexp) {
 	rxp := regexp.MustCompile(basicPattern)
-	return rxp.MatchString(authHeader), rxp
+	return rxp.MatchString(credsHeader), rxp
 }
 
-func (creds *Credentials) BearerToken(authHeader string) (bool, *regexp.Regexp) {
+func (creds *Credentials) BearerToken(credsHeader string) (bool, *regexp.Regexp) {
 	rxp := regexp.MustCompile(bearerPattern)
-	return rxp.MatchString(authHeader), rxp
+	return rxp.MatchString(credsHeader), rxp
 }
 
 func (creds *Credentials) ParseBasicAuth(basicAuth string) error {
@@ -116,6 +118,14 @@ func (creds *Credentials) PasswordHash() string {
 	return creds.GenerateHash(creds.Password)
 }
 
+func (creds *Credentials) ValidatePasswordHash(pwdHash string) (bool, error) {
+	if pwdHash == creds.PasswordHash() {
+		return true, nil
+	} else {
+		return false, errors.New("Invalid password")
+	}
+}
+
 // GenerateHash uses credentials.HashAlg to hash string content
 func (creds *Credentials) GenerateHash(content string) string {
 	alg := creds.HashAlg.New()
@@ -135,4 +145,39 @@ func (creds *Credentials) ResolveHashAlg(hash string) {
 	default:
 		creds.HashAlg = crypto.SHA512
 	}
+}
+
+// FetchUser gets the user info from the database
+func (creds *Credentials) FetchUser() (map[string]interface{}, error) {
+	couch := NewCouch(creds.Backend.Server, creds.Backend.UserDB)
+	doc, err := couch.Get(creds.Username)
+
+	if err != nil {
+		err = errors.New("Error retrieving user info")
+	}
+
+	return doc, err
+}
+
+// ResolveGroupsToSystems checks the group info for the user and translates it into a
+// a list of systems that user has access to with the access rights they have on that system
+func (creds *Credentials) ResolveGroupsToSystems(groups []interface{}) []interface{} {
+	couch := NewCouch(creds.Backend.Server, creds.Backend.GroupDB)
+	docs, err := couch.GetMultiple(groups)
+
+	if err != nil {
+		log.Println("Error resolving groups: ", err)
+	}
+
+	var systems []interface{}
+
+	if err == nil {
+		for _, doc := range docs {
+			if systemList, exists := doc.(map[string]interface{})["systems"]; exists {
+				systems = systemList.([]interface{})
+			}
+		}
+	}
+
+	return systems
 }
