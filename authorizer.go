@@ -2,11 +2,9 @@ package gouncer
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/npolar/toki"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,7 +12,6 @@ import (
 
 type Authorizer struct {
 	Credentials
-	Backend    *Backend
 	Expiration int32 // Token expriation time. Used on touch.
 	*ResponseHandler
 }
@@ -60,7 +57,10 @@ func (auth *Authorizer) AuthorizedUser(system string) {
 	if err == nil {
 		auth.ResolveHashAlg(userInfo["hash"].(string))
 
-		if auth.PasswordHash() == userInfo["password"].(string) {
+		valid, verr := auth.ValidatePassword(userInfo["password"].(string))
+		err = verr
+
+		if valid {
 			var accessList []interface{}
 
 			if groups, exists := userInfo["groups"].([]interface{}); exists {
@@ -73,6 +73,10 @@ func (auth *Authorizer) AuthorizedUser(system string) {
 
 			auth.SystemAccessible(system, accessList)
 		}
+	}
+
+	if err != nil {
+		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 }
 
@@ -105,41 +109,6 @@ func (auth *Authorizer) AuthorizedToken(system string) {
 	if err != nil {
 		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
-}
-
-// FetchUser gets the user info from the database
-func (auth *Authorizer) FetchUser() (map[string]interface{}, error) {
-	couch := NewCouch(auth.Backend.Server, auth.Backend.UserDB)
-	doc, err := couch.Get(auth.Username)
-
-	if err != nil {
-		err = errors.New("Error retrieving user info")
-	}
-
-	return doc, err
-}
-
-// ResolveGroupsToSystems checks the group info for the user and translates it into a
-// a list of systems that user has access to with the access rights they have on that system
-func (auth *Authorizer) ResolveGroupsToSystems(groups []interface{}) []interface{} {
-	couch := NewCouch(auth.Backend.Server, auth.Backend.GroupDB)
-	docs, err := couch.GetMultiple(groups)
-
-	if err != nil {
-		log.Println("Error resolving groups: ", err)
-	}
-
-	var systems []interface{}
-
-	if err == nil {
-		for _, doc := range docs {
-			if systemList, exists := doc.(map[string]interface{})["systems"]; exists {
-				systems = systemList.([]interface{})
-			}
-		}
-	}
-
-	return systems
 }
 
 func (auth *Authorizer) ResolveDuplicateSystems(userSystems []interface{}, systems []interface{}) []interface{} {
