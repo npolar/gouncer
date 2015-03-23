@@ -1,16 +1,14 @@
 package gouncer
 
 import (
-	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/npolar/toki"
-	"log"
 	"net/http"
+	"time"
 )
 
 type Authenticator struct {
 	Credentials
-	Backend    *Backend
 	Expiration int32 // Token expiration time
 	TokenAlg   string
 	*ResponseHandler
@@ -23,9 +21,12 @@ func NewAuthenticator(h *ResponseHandler) *Authenticator {
 	return a
 }
 
+// HandleTokenRequest does a header check. If authorization is present it will call
+// ProcessTokenRequest to handle futher validation. If no authorization header is present
+// it will respond with an unauthorized error
 func (auth *Authenticator) HandleTokenRequest() {
 	if err := auth.ParseAuthHeader(auth.HttpRequest.Header.Get("Authorization")); err == nil {
-		auth.GenerateToken()
+		auth.ProcessTokenRequest()
 	} else {
 		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
@@ -33,40 +34,53 @@ func (auth *Authenticator) HandleTokenRequest() {
 	auth.Respond()
 }
 
-func (auth *Authenticator) GenerateToken() {
+// ProcessTokenRequest retrieves the requested user and checks if the credentials match. If everything
+// checks out it calls the TokenResponse to generate the actual response
+func (auth *Authenticator) ProcessTokenRequest() {
 	userInfo, err := auth.FetchUser()
 
 	if err == nil {
 		auth.ResolveHashAlg(userInfo["hash"].(string))
 
 		// Check if the provided password matches that in the user database
-		if userInfo["password"].(string) == auth.PasswordHash() {
-			auth.GenerateSecret()
-			tokenizer := toki.NewJsonWebToken()
-			tokenizer.TokenAlgorithm = auth.ResolveTokenAlgorithm()
+		valid, verr := auth.ValidatePasswordHash(userInfo["password"].(string))
+		err = verr
 
-			// Set the token contents
-			tokenizer.Claim.Content = auth.TokenBody(userInfo)
-
-			// Sign the token and return the full token string
-			tokenizer.Sign(auth.Secret)
-			token, err := tokenizer.String()
-
-			if err == nil {
-				// Cache the token info for validation purposes
-				err = auth.CacheTokenInfo(auth.Secret)
-
-				// When token info is cached respond with the token
-				if err == nil {
-					auth.Response.Token = token
-				}
-			}
-
-			if err != nil {
-				auth.NewError(http.StatusUnauthorized, err.Error())
-			}
+		if valid {
+			auth.TokenResponse(userInfo)
 		}
-	} else {
+	}
+
+	if err != nil {
+		auth.NewError(http.StatusUnauthorized, err.Error())
+	}
+}
+
+// TokenResponse uses the toki JWT generator library to create a new JWT.
+// The resulting JWT is then set as the resonse token
+func (auth *Authenticator) TokenResponse(userInfo map[string]interface{}) {
+	auth.GenerateSecret()
+	tokenizer := toki.NewJsonWebToken()
+	tokenizer.TokenAlgorithm = auth.ResolveTokenAlgorithm()
+
+	// Set the token contents
+	tokenizer.Claim.Content = auth.TokenBody(userInfo)
+
+	// Sign the token and return the full token string
+	tokenizer.Sign(auth.Secret)
+	token, err := tokenizer.String()
+
+	if err == nil {
+		// Cache the token info for validation purposes
+		err = auth.CacheTokenInfo(auth.Secret)
+
+		// When token info is cached respond with the token
+		if err == nil {
+			auth.Response.Token = token
+		}
+	}
+
+	if err != nil {
 		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 }
@@ -112,39 +126,9 @@ func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string
 		content["systems"] = systems
 	}
 
+	content["exp"] = time.Now().Add(time.Duration(auth.Expiration) * time.Second).Unix() // Move expiration control to the token
+
 	return content
-}
-
-func (auth *Authenticator) FetchUser() (map[string]interface{}, error) {
-	couch := NewCouch(auth.Backend.Server, auth.Backend.UserDB)
-	doc, err := couch.Get(auth.Username)
-
-	if err != nil {
-		err = errors.New("Error retrieving user info")
-	}
-
-	return doc, err
-}
-
-func (auth *Authenticator) ResolveGroupsToSystems(groups []interface{}) []interface{} {
-	couch := NewCouch(auth.Backend.Server, auth.Backend.GroupDB)
-	docs, err := couch.GetMultiple(groups)
-
-	if err != nil {
-		log.Println("Error resolving groups: ", err)
-	}
-
-	var systems []interface{}
-
-	if err == nil {
-		for _, doc := range docs {
-			if systemList, exists := doc.(map[string]interface{})["systems"]; exists {
-				systems = systemList.([]interface{})
-			}
-		}
-	}
-
-	return systems
 }
 
 func (auth *Authenticator) ResolveDuplicateSystems(userSystems []interface{}, systems []interface{}) []interface{} {
