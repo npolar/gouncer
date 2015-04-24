@@ -51,8 +51,8 @@ func (srv *Server) Start() {
 
 	// Define routes
 	http.Handle("/", corsInfo)
-	http.Handle("/authenticate", corsAuthentication)
-	http.Handle("/authorize", corsAuthorization)
+	http.Handle("/authenticate/", corsAuthentication)
+	http.Handle("/authorize/", corsAuthorization)
 
 	// Attempt to start the server. On error server exits with status 1
 	if err := http.ListenAndServeTLS(srv.Port, srv.Certificate, srv.CertificateKey, nil); err != nil {
