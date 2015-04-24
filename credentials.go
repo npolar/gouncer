@@ -37,7 +37,7 @@ func (creds *Credentials) ParseAuthHeader(value string) error {
 		return nil
 	}
 
-	return errors.New("Unsupported credsorization method")
+	return errors.New("Unsupported authorization method")
 }
 
 func (creds *Credentials) BasicAuth(authHeader string) (bool, *regexp.Regexp) {
