@@ -23,6 +23,7 @@ type Backend struct {
 	GroupDB string
 	UserDB  string
 	Server  string
+	Smtp    string
 }
 
 type Info struct {
@@ -48,11 +49,15 @@ func (srv *Server) Start() {
 	corsInfo := corsRules.Handler(http.HandlerFunc(srv.InfoHandler))
 	corsAuthentication := corsRules.Handler(http.HandlerFunc(srv.AuthenticationHandler))
 	corsAuthorization := corsRules.Handler(http.HandlerFunc(srv.AuthorizationHandler))
+	corsRegistration := corsRules.Handler(http.HandlerFunc(srv.RegistrationHandler))
+	corsConfirmation := corsRules.Handler(http.HandlerFunc(srv.ConfirmationHandler))
 
 	// Define routes
 	http.Handle("/", corsInfo)
 	http.Handle("/authenticate/", corsAuthentication)
 	http.Handle("/authorize/", corsAuthorization)
+	http.Handle("/register/", corsRegistration)
+	http.Handle("/confirm/", corsConfirmation)
 
 	// Attempt to start the server. On error server exits with status 1
 	if err := http.ListenAndServeTLS(srv.Port, srv.Certificate, srv.CertificateKey, nil); err != nil {
@@ -95,6 +100,32 @@ func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) 
 		handler.Respond()
 	}
 
+}
+
+// RegistrationHandler receives a regestration request and initiates the registration process
+func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
+	handler := srv.ConfigureHandler(w, r)
+	if r.Method == "POST" {
+		registration := NewRegistration(handler)
+		registration.Backend = srv.Backend
+		registration.Submit()
+	} else {
+		handler.NewError(http.StatusMethodNotAllowed, "")
+		handler.Respond()
+	}
+}
+
+// ConfirmationHandler receives a confirmation request and initiates the confirmation sequence
+func (srv *Server) ConfirmationHandler(w http.ResponseWriter, r *http.Request) {
+	handler := srv.ConfigureHandler(w, r)
+	if r.Method == "GET" {
+		confirmation := NewConfirmation(handler)
+		confirmation.Backend = srv.Backend
+		confirmation.ConfirmRegistration()
+	} else {
+		handler.NewError(http.StatusMethodNotAllowed, "")
+		handler.Respond()
+	}
 }
 
 // NewCache starts a new memcache client for the provided servers
