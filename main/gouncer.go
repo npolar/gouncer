@@ -24,7 +24,6 @@ func InitGouncer() {
 	gouncer.Run(os.Args)
 }
 
-// @TODO define flags for token algorithm
 // @TODO define flags for CORS rules ?? Config file
 func LoadFlags() []cli.Flag {
 	return []cli.Flag{
