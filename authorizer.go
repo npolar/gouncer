@@ -97,10 +97,15 @@ func (auth *Authorizer) AuthorizedToken(system string) {
 			err = verr
 
 			if valid {
-				accessList := token.Claim.Content["systems"].([]interface{})
-				auth.SystemAccessible(system, accessList)
+				var accessList []interface{}
 
+				if token.Claim.Content["systems"] != nil {
+					accessList = token.Claim.Content["systems"].([]interface{})
+				}
+
+				auth.SystemAccessible(system, accessList)
 				// Touch the memcache instance only when token validation succeeds
+				// @TODO review refresh strategy (can cause infinit keep-alive)
 				auth.Backend.Cache.Touch(username, auth.Expiration)
 			}
 		}
