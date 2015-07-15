@@ -151,36 +151,36 @@ func (r *Register) sendConfirmationMail(host string, confirmationID string) {
 	// Connect to the remote SMTP server specified through the commandline.
 	c, err := smtp.Dial(r.Backend.Smtp)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	// Set the sender
 	if err := c.Mail("data@npolar.no"); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	// Set the recipient
 	if err := c.Rcpt(r.RegistrationInfo.Email); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	// Send the email body.
 	wc, err := c.Data()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	_, err = fmt.Fprintf(wc, message)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	err = wc.Close()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	// Send the QUIT command and close the connection.
 	err = c.Quit()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 }
