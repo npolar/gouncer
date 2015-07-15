@@ -60,6 +60,18 @@ func (couch *CouchDB) GetMultiple(ids interface{}) ([]interface{}, error) {
 	return nil, err
 }
 
+// Post posts a single document to couchdb
+func (couch *CouchDB) Post(document []byte) (map[string]interface{}, error) {
+	response, err := http.Post(couch.url(), "application/json", bytes.NewReader(document))
+
+	if err == nil {
+		defer response.Body.Close() // Close the response body on return
+		return couch.parseResponse(response.Body)
+	}
+
+	return nil, err
+}
+
 // generateBulkBody generates the CouchDB bulk body. {"keys":["id1",...,"idn"]}
 func (couch *CouchDB) generateBulkBody(ids interface{}) ([]byte, error) {
 	var bulk = make(map[string]interface{})
