@@ -32,6 +32,11 @@ type Info struct {
 	Description string `json:"description,omitempty" xml:",omitempty"`
 }
 
+type HandlerDef struct {
+	Routes  []string
+	Handler http.HandlerFunc
+}
+
 func NewServer(port string) *Server {
 	return &Server{Port: port}
 }
@@ -45,19 +50,19 @@ func (srv *Server) Start() {
 		AllowedHeaders: []string{"Accept", "Content-Type", "Authorization", "Origin"},
 	})
 
-	// Wrap the http handlers in a cors handler
-	corsInfo := corsRules.Handler(http.HandlerFunc(srv.InfoHandler))
-	corsAuthentication := corsRules.Handler(http.HandlerFunc(srv.AuthenticationHandler))
-	corsAuthorization := corsRules.Handler(http.HandlerFunc(srv.AuthorizationHandler))
-	corsRegistration := corsRules.Handler(http.HandlerFunc(srv.RegistrationHandler))
-	corsConfirmation := corsRules.Handler(http.HandlerFunc(srv.ConfirmationHandler))
+	handlers := [...]HandlerDef{
+		HandlerDef{[]string{"/"}, srv.InfoHandler},
+		HandlerDef{[]string{"/authenticate", "/authenticate/"}, srv.AuthenticationHandler},
+		HandlerDef{[]string{"/authorize", "/authorize/"}, srv.AuthorizationHandler},
+		HandlerDef{[]string{"/register", "/register/"}, srv.RegistrationHandler},
+		HandlerDef{[]string{"/confirm", "/confirm/"}, srv.ConfirmationHandler},
+	}
 
-	// Define routes
-	http.Handle("/", corsInfo)
-	http.Handle("/authenticate/", corsAuthentication)
-	http.Handle("/authorize/", corsAuthorization)
-	http.Handle("/register/", corsRegistration)
-	http.Handle("/confirm/", corsConfirmation)
+	for _, h := range handlers {
+		for _, r := range h.Routes {
+			http.Handle(r, corsRules.Handler(http.HandlerFunc(h.Handler)))
+		}
+	}
 
 	// Attempt to start the server. On error server exits with status 1
 	if err := http.ListenAndServeTLS(srv.Port, srv.Certificate, srv.CertificateKey, nil); err != nil {
