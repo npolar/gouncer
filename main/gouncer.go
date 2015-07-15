@@ -82,6 +82,11 @@ func LoadFlags() []cli.Flag {
 			Usage: "Server port.",
 		},
 		cli.StringFlag{
+			Name:   "smtp, s",
+			Usage:  "Set SMTP server to use for notification mails",
+			EnvVar: "GOUNCER_SMTP",
+		},
+		cli.StringFlag{
 			Name:   "userdb, u",
 			Value:  "users",
 			Usage:  "Set user database.",
@@ -109,6 +114,7 @@ func StartGouncerServer(c *cli.Context) {
 		Cache:   srv.NewCache(c.StringSlice("memcache")),
 		UserDB:  c.String("userdb"),
 		GroupDB: c.String("groupdb"),
+		Smtp:    c.String("smtp"),
 	}
 
 	// Transfer version and description info to the server layer
