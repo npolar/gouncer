@@ -52,7 +52,7 @@ func (r *Register) Submit() {
 					r.Handler.Respond()
 				}
 			} else {
-				r.Handler.NewError(http.StatusInternalServerError, err)
+				r.Handler.NewError(http.StatusInternalServerError, err.Error())
 				r.Handler.Respond()
 			}
 		} else {
