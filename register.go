@@ -37,11 +37,10 @@ func NewRegistration(h *ResponseHandler) *Register {
 func (r *Register) Submit() {
 	if err := r.parseUserInfo(); err == nil {
 		couch := NewCouch(r.Backend.Server, r.Backend.UserDB)
-		doc, err := couch.Get(r.RegistrationInfo.Email)
+		_, err := couch.Get(r.RegistrationInfo.Email)
 
 		if err != nil {
 			if err.Error() == "404 Object Not Found" {
-				log.Println(err, doc)
 				ip, _ := r.localIP()
 
 				if cache, err := r.cacheRegistrationRequest(); err == nil {
@@ -145,7 +144,7 @@ func (r *Register) sendConfirmationMail(host string, confirmationID string) {
 	if template, err := ioutil.ReadFile("./conf/confirmation.txt"); err == nil {
 		message = confirmregxp.ReplaceAllString(string(template), link)
 	} else { // When no message is configured use a generic registration message
-		message = "Subject:Account Registration\n\nThank you for registering an account with us. To complete your registration please click the following link: " + link + "\n\nIf you did not try to register an account with us feel free to ignore or delete this message."
+		message = "Subject:Account Registration\n\nThank you for registering.\n\nTo complete your registration please click the following link: " + link + "\n\nIf you did not try to register an account with us feel free to ignore or delete this message."
 	}
 
 	// Connect to the remote SMTP server specified through the commandline.
