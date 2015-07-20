@@ -40,32 +40,33 @@ func NewRegistration(h *ResponseHandler) *Register {
 
 // Submit triggers the registration sequence.
 func (r *Register) Submit() {
-
 	if err := r.parseUserInfo(); err == nil {
-		couch := NewCouch(r.Backend.Couchdb, r.Backend.Userdb)
-		_, err := couch.Get(r.RegistrationInfo.Email)
+		r.processRequest()
+	} else {
+		r.Handler.NewError(http.StatusNotAcceptable, err.Error())
+	}
 
-		if err != nil {
-			if err.Error() == "404 Object Not Found" {
+	r.Handler.Respond()
+}
 
-				if cache, err := r.cacheRegistrationRequest(); err == nil {
-					r.sendConfirmationMail(r.resolveHost(), cache)
-					r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". To complete the registration click the link inside.")
-				} else {
-					r.Handler.NewError(http.StatusInternalServerError, err.Error())
-				}
+func (r *Register) processRequest() {
+	couch := NewCouch(r.Backend.Couchdb, r.Backend.Userdb)
+	_, err := couch.Get(r.RegistrationInfo.Email)
+
+	if err != nil {
+		if err.Error() == "404 Object Not Found" {
+			if cache, err := r.cacheRegistrationRequest(); err == nil {
+				r.sendConfirmationMail(r.resolveHost(), cache)
+				r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". To complete the registration click the link inside.")
 			} else {
 				r.Handler.NewError(http.StatusInternalServerError, err.Error())
 			}
 		} else {
-			r.Handler.NewError(http.StatusConflict, "This user already exists")
+			r.Handler.NewError(http.StatusInternalServerError, err.Error())
 		}
-
 	} else {
-		r.Handler.NewError(http.StatusNotAcceptable, "")
+		r.Handler.NewError(http.StatusConflict, "This uers already exists.")
 	}
-
-	r.Handler.Respond()
 }
 
 // localIP tries to resolve the local IP of the server
@@ -151,7 +152,7 @@ func (r *Register) parseUserInfo() error {
 	return err
 }
 
-// defaultGroups tries to assing default group settings to users based on the e-mail domain.
+// defaultGroups tries to assing default group settings to users based on the email domain.
 func (r *Register) defaultGroups() []string {
 	mailregxp := regexp.MustCompile(".*@(.*\\.[a-zA-Z]{2,3})")
 	matches := mailregxp.FindStringSubmatch(r.RegistrationInfo.Email)
