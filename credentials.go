@@ -149,7 +149,7 @@ func (creds *Credentials) ResolveHashAlg(hash string) {
 
 // FetchUser gets the user info from the database
 func (creds *Credentials) FetchUser() (map[string]interface{}, error) {
-	couch := NewCouch(creds.Backend.Server, creds.Backend.UserDB)
+	couch := NewCouch(creds.Backend.Couchdb, creds.Backend.Userdb)
 	doc, err := couch.Get(creds.Username)
 
 	if err != nil {
@@ -162,7 +162,7 @@ func (creds *Credentials) FetchUser() (map[string]interface{}, error) {
 // ResolveGroupsToSystems checks the group info for the user and translates it into a
 // a list of systems that user has access to with the access rights they have on that system
 func (creds *Credentials) ResolveGroupsToSystems(groups []interface{}) []interface{} {
-	couch := NewCouch(creds.Backend.Server, creds.Backend.GroupDB)
+	couch := NewCouch(creds.Backend.Couchdb, creds.Backend.Groupdb)
 	docs, err := couch.GetMultiple(groups)
 
 	if err != nil {
