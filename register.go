@@ -15,13 +15,17 @@ import (
 )
 
 type Register struct {
+	*Core
+	*Confirmation
 	Credentials
 	Handler *ResponseHandler
 	RegistrationInfo
+	Groups map[string]Registration
 }
 
 type RegistrationInfo struct {
 	Email    string   `json:"_id,omitempty"`
+	Name     string   `json:"name,omitempty"`
 	Password string   `json:"password,omitempty"`
 	Active   bool     `json:"active,omitempty"`
 	Groups   []string `json:"groups,omitempty"`
@@ -34,38 +38,37 @@ func NewRegistration(h *ResponseHandler) *Register {
 	}
 }
 
+// Submit triggers the registration sequence.
 func (r *Register) Submit() {
+
 	if err := r.parseUserInfo(); err == nil {
-		couch := NewCouch(r.Backend.Server, r.Backend.UserDB)
+		couch := NewCouch(r.Backend.Couchdb, r.Backend.Userdb)
 		_, err := couch.Get(r.RegistrationInfo.Email)
 
 		if err != nil {
 			if err.Error() == "404 Object Not Found" {
-				ip, _ := r.localIP()
 
 				if cache, err := r.cacheRegistrationRequest(); err == nil {
-					r.sendConfirmationMail(ip.String(), cache)
-					r.Handler.Writer.Write([]byte("In a few moments you will receive a confirmation email at: " + r.RegistrationInfo.Email + ". Please click the link inside to complete your registration."))
+					r.sendConfirmationMail(r.resolveHost(), cache)
+					r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". To complete the registration click the link inside.")
 				} else {
-					r.Handler.NewError(http.StatusInternalServerError, "")
-					r.Handler.Respond()
+					r.Handler.NewError(http.StatusInternalServerError, err.Error())
 				}
 			} else {
 				r.Handler.NewError(http.StatusInternalServerError, err.Error())
-				r.Handler.Respond()
 			}
 		} else {
 			r.Handler.NewError(http.StatusConflict, "This user already exists")
-			r.Handler.Respond()
 		}
 
 	} else {
 		r.Handler.NewError(http.StatusNotAcceptable, "")
-		r.Handler.Respond()
 	}
 
+	r.Handler.Respond()
 }
 
+// localIP tries to resolve the local IP of the server
 func (r *Register) localIP() (net.IP, error) {
 	tt, err := net.Interfaces()
 	if err != nil {
@@ -91,6 +94,23 @@ func (r *Register) localIP() (net.IP, error) {
 	return nil, errors.New("cannot find local IP address")
 }
 
+func (r *Register) resolveHost() string {
+	// Set host to localhost as default
+	host := "localhost"
+
+	// Check if an external hostname was provided. if so use this instead
+	if r.Core.Hostname != "" {
+		host = r.Core.Hostname
+	} else {
+		// If no hostname is configured use the IP address
+		if ip, err := r.localIP(); err == nil {
+			host = ip.String()
+		}
+	}
+
+	return host
+}
+
 // cacheRegistrationRequest generates a password has for the password in the request and
 // creates a memcache entry before sending the confirmation email pointing to the cached
 // reference
@@ -101,11 +121,12 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 
 	// Hash the email address and use it as a key
 	r.Credentials.HashAlg = crypto.SHA1
-	key := r.Credentials.GenerateHash(r.RegistrationInfo.Email)
+	key := r.Credentials.GenerateHash(r.RegistrationInfo.Email + r.TimeSalt() + r.CharSalt(32))
 
 	// Build the user object
 	user := &RegistrationInfo{
 		Email:    r.RegistrationInfo.Email,
+		Name:     r.RegistrationInfo.Name,
 		Password: passhash,
 		Active:   true,
 		Groups:   r.defaultGroups(),
@@ -119,6 +140,7 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 	return key, err
 }
 
+// parseUserInfo unmarshals the registration body into the RegistrationInfo struct
 func (r *Register) parseUserInfo() error {
 	info, err := ioutil.ReadAll(r.Handler.HttpRequest.Body)
 
@@ -129,20 +151,33 @@ func (r *Register) parseUserInfo() error {
 	return err
 }
 
+// defaultGroups tries to assing default group settings to users based on the e-mail domain.
 func (r *Register) defaultGroups() []string {
-	var groups []string
-	return groups
+	mailregxp := regexp.MustCompile(".*@(.*\\.[a-zA-Z]{2,3})")
+	matches := mailregxp.FindStringSubmatch(r.RegistrationInfo.Email)
+
+	// Check if the users email domain matches any of the configured group domains
+	for _, grp := range r.Groups {
+		if grp.Domain == matches[1] {
+			return grp.Groups
+		}
+	}
+
+	// If none of the group domains matched return the default group
+	return r.Groups["default"].Groups
 }
 
+// sendConfirmationMail generates an smtp request with a confirmation email to the user
 func (r *Register) sendConfirmationMail(host string, confirmationID string) {
 	var message string
 	confirmregxp := regexp.MustCompile("{{confirm}}")
-	link := "https://" + host + ":8950/confirm/" + confirmationID
+	link := "https://" + host + r.Core.Port + "/confirm/" + confirmationID
 
 	// Load the mail contents
 
-	if template, err := ioutil.ReadFile("./conf/confirmation.txt"); err == nil {
-		message = confirmregxp.ReplaceAllString(string(template), link)
+	if r.Confirmation.Message != "" {
+		message = "Subject:" + r.Confirmation.Subject + "\n\n"
+		message += confirmregxp.ReplaceAllString(r.Confirmation.Message, link)
 	} else { // When no message is configured use a generic registration message
 		message = "Subject:Account Registration\n\nThank you for registering.\n\nTo complete your registration please click the following link: " + link + "\n\nIf you did not try to register an account with us feel free to ignore or delete this message."
 	}
