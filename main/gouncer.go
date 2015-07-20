@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
+	"github.com/naoina/toml"
 	"github.com/npolar/gouncer"
+	"io/ioutil"
 	"log"
 	"os"
 )
@@ -39,6 +41,11 @@ func LoadFlags() []cli.Flag {
 			EnvVar: "GOUNCER_SSL_CERT",
 		},
 		cli.StringFlag{
+			Name:   "config",
+			Usage:  "Specify a TOML configuration file to load.",
+			EnvVar: "GOUNCER_CONF",
+		},
+		cli.StringFlag{
 			Name:   "couchdb, db",
 			Value:  "http://localhost:6984",
 			Usage:  "Specify CouchDB address",
@@ -55,6 +62,11 @@ func LoadFlags() []cli.Flag {
 			Value:  "groups",
 			Usage:  "Set group database",
 			EnvVar: "GOUNCER_GROUP_DB",
+		},
+		cli.StringFlag{
+			Name:   "hostname, host",
+			Usage:  "Set the servers hostname. Used when building confirmation uri's",
+			EnvVar: "GOUNCER_HOSTNAME",
 		},
 		cli.BoolFlag{
 			Name:  "jsonp, j",
@@ -80,6 +92,12 @@ func LoadFlags() []cli.Flag {
 			Value: "8950",
 			Usage: "Server port.",
 		},
+		cli.IntFlag{
+			Name:   "revalidation, r",
+			Value:  1800,
+			Usage:  "Token revalidation time in seconds",
+			EnvVar: "GOUNCER_TOKEN_REVALIDATE",
+		},
 		cli.StringFlag{
 			Name:   "smtp, s",
 			Usage:  "Set SMTP server to use for notification mails",
@@ -97,23 +115,13 @@ func LoadFlags() []cli.Flag {
 // StartGouncerServer initializes and starts a new server instance
 // with the provided command line options.
 func StartGouncerServer(c *cli.Context) {
-	CheckSSL(c)
+	var srv *gouncer.Server
 
-	// Create a new server instance and set the right options
-	srv := gouncer.NewServer(":" + c.String("port"))
-	srv.Certificate = c.String("certificate")
-	srv.CertificateKey = c.String("key")
-	srv.Expiration = int32(c.Int("expiration"))
-	srv.JsonP = c.Bool("jsonp")
-	srv.TokenAlg = c.String("algorithm")
-
-	// Configure the server backend
-	srv.Backend = &gouncer.Backend{
-		Server:  c.String("couchdb"),
-		Cache:   srv.NewCache(c.StringSlice("memcache")),
-		UserDB:  c.String("userdb"),
-		GroupDB: c.String("groupdb"),
-		Smtp:    c.String("smtp"),
+	// Create a new server instance with the appropriate  configuration
+	if cfg := c.String("config"); cfg != "" {
+		srv = ServerFromConf(cfg)
+	} else {
+		srv = ServerFromCli(c)
 	}
 
 	// Transfer version and description info to the server layer
@@ -126,6 +134,54 @@ func StartGouncerServer(c *cli.Context) {
 
 	// Start the auth server
 	srv.Start()
+}
+
+// ServerFromConf generates a server instance with the settings
+// specified in the specified config file. All other command line
+// arguments are igored in this operation mode
+func ServerFromConf(cfg string) *gouncer.Server {
+	conf, err := ioutil.ReadFile(cfg)
+
+	if err != nil {
+		log.Fatalln("Error reading config", err.Error())
+	}
+
+	var gcfg gouncer.Config
+
+	if err := toml.Unmarshal(conf, &gcfg); err != nil {
+		log.Fatalln("Error parsing config", err.Error())
+	}
+
+	return gouncer.NewServer(&gcfg)
+}
+
+// ServerFromCli uses the cli arguments to configure a server instance
+func ServerFromCli(c *cli.Context) *gouncer.Server {
+	CheckSSL(c)
+
+	// Initialize configuration components from cli
+	core := &gouncer.Core{c.String("hostname"), ":" + c.String("port"), c.Bool("jsonp"), c.String("log")}
+	ssl := &gouncer.Ssl{c.String("certificate"), c.String("key")}
+
+	backend := &gouncer.Backend{
+		Couchdb:  c.String("couchdb"),
+		Userdb:   c.String("userdb"),
+		Groupdb:  c.String("groupdb"),
+		Memcache: c.StringSlice("memcache"),
+		Smtp:     c.String("smtp"),
+	}
+
+	token := &gouncer.Token{c.String("algorithm"), int32(c.Int("expiration")), int32(c.Int("revalidation"))}
+
+	// Create configuration
+	cfg := &gouncer.Config{
+		Core:    core,
+		Ssl:     ssl,
+		Backend: backend,
+		Token:   token,
+	}
+
+	return gouncer.NewServer(cfg)
 }
 
 // CeckSSL looks at the certificate and certificate-key flags. If
