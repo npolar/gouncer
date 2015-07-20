@@ -8,22 +8,60 @@ import (
 )
 
 type Server struct {
-	Port           string
-	Backend        *Backend
-	Certificate    string
-	CertificateKey string
-	TokenAlg       string
-	Expiration     int32
-	JsonP          bool
+	*Config
 	Info
 }
 
+// Config for the server
+type Config struct {
+	*Core
+	*Ssl
+	*Backend
+	*Token
+	Registrations map[string]Registration
+	*Confirmation
+}
+
+// Core server setup
+type Core struct {
+	Hostname string
+	Port     string
+	Jsonp    bool
+	Log      string
+}
+
+// Ssl certificate and key config
+type Ssl struct {
+	Certificate string
+	Key         string
+}
+
+// Backend configuration info
 type Backend struct {
-	Cache   *memcache.Client
-	GroupDB string
-	UserDB  string
-	Server  string
-	Smtp    string
+	Memcache []string
+	Cache    *memcache.Client
+	Groupdb  string
+	Userdb   string
+	Couchdb  string
+	Smtp     string
+}
+
+// Token information
+type Token struct {
+	Algorithm    string
+	Expiration   int32
+	Revalidation int32
+}
+
+// Registration groups
+type Registration struct {
+	Domain string
+	Groups []string
+}
+
+type Confirmation struct {
+	Subject string
+	Message string
 }
 
 type Info struct {
@@ -37,8 +75,12 @@ type HandlerDef struct {
 	Handler http.HandlerFunc
 }
 
-func NewServer(port string) *Server {
-	return &Server{Port: port}
+func NewServer(cfg *Config) *Server {
+	srv := &Server{}
+	srv.Config = cfg
+	srv.Cache = srv.NewCache(srv.Memcache)
+
+	return srv
 }
 
 // Start sets up gouncers routes and handlers and then starts a TLS server
@@ -65,7 +107,7 @@ func (srv *Server) Start() {
 	}
 
 	// Attempt to start the server. On error server exits with status 1
-	if err := http.ListenAndServeTLS(srv.Port, srv.Certificate, srv.CertificateKey, nil); err != nil {
+	if err := http.ListenAndServeTLS(srv.Port, srv.Certificate, srv.Key, nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -77,7 +119,7 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 		// Configure the Authenticator
 		authenticator := NewAuthenticator(handler)
 		authenticator.Backend = srv.Backend
-		authenticator.TokenAlg = srv.TokenAlg
+		authenticator.TokenAlg = srv.Algorithm
 		authenticator.Expiration = srv.Expiration
 
 		// Execute a token request
@@ -112,7 +154,10 @@ func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "POST" {
 		registration := NewRegistration(handler)
+		registration.Core = srv.Core
 		registration.Backend = srv.Backend
+		registration.Groups = srv.Registrations
+		registration.Confirmation = srv.Confirmation
 		registration.Submit()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "")
@@ -124,9 +169,9 @@ func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 func (srv *Server) ConfirmationHandler(w http.ResponseWriter, r *http.Request) {
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "GET" {
-		confirmation := NewConfirmation(handler)
-		confirmation.Backend = srv.Backend
-		confirmation.ConfirmRegistration()
+		confirm := NewConfirm(handler)
+		confirm.Backend = srv.Backend
+		confirm.Registration()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "")
 		handler.Respond()
@@ -141,7 +186,7 @@ func (srv *Server) NewCache(servers []string) *memcache.Client {
 // ConfigureHandler sets up the response handler
 func (srv *Server) ConfigureHandler(w http.ResponseWriter, r *http.Request) *ResponseHandler {
 	handler := NewResponseHandler(w, r)
-	handler.JsonP = srv.JsonP
+	handler.JsonP = srv.Jsonp
 
 	return handler
 }
