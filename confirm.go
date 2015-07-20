@@ -5,34 +5,36 @@ import (
 	"strings"
 )
 
-type Confirmation struct {
+type Confirm struct {
 	*Backend
 	Handler *ResponseHandler
 }
 
-func NewConfirmation(h *ResponseHandler) *Confirmation {
-	return &Confirmation{
+func NewConfirm(h *ResponseHandler) *Confirm {
+	return &Confirm{
 		Handler: h,
 	}
 }
 
-func (c *Confirmation) ConfirmRegistration() {
+func (c *Confirm) Registration() {
 	segs := strings.Split(c.Handler.HttpRequest.URL.Path, "/")
 
 	if item, err := c.Backend.Cache.Get(segs[len(segs)-1]); err == nil {
 		doc := item.Value
 
-		couch := NewCouch(c.Backend.Server, c.Backend.UserDB)
+		couch := NewCouch(c.Backend.Couchdb, c.Backend.Userdb)
 		if _, err := couch.Post(doc); err == nil {
+			// If the user object was correctly saved to the backend we delete the cache entry
 			c.Backend.Cache.Delete(segs[len(segs)-1])
-			c.Handler.Writer.Write([]byte("Registration successfull. You can now login with your new account."))
+
+			// Respond to the user
+			c.Handler.NewResponse(http.StatusOK, "Registration successfull. You can now login with your new account.")
 		} else {
 			c.Handler.NewError(http.StatusInternalServerError, err.Error())
-			c.Handler.Respond()
 		}
 
 	} else {
 		c.Handler.NewError(http.StatusInternalServerError, err.Error())
-		c.Handler.Respond()
 	}
+	c.Handler.Respond()
 }
