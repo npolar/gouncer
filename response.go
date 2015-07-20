@@ -12,7 +12,7 @@ type ResponseHandler struct {
 	Writer      http.ResponseWriter
 	HttpRequest *http.Request
 	Response    *AuthResponse
-	Error       *AuthError
+	Error       *Response
 	JsonP       bool
 }
 
@@ -22,10 +22,11 @@ type AuthResponse struct {
 	Info         *Info       `json:"info,omitempty" xml:",omitempty"`
 }
 
-type AuthError struct {
-	Status    int    `json:"status,omitempty" xml:"Status,attr,omitempty"`
-	HttpError string `json:"http_error,omitempty" xml:"Error,omitempty"`
-	Message   string `json:"message,omitempty" xml:"Message,omitempty"`
+type Response struct {
+	Status      int    `json:"status,omitempty" xml:"Status,attr,omitempty"`
+	HttpMessage string `json:"http_message,omitempty" xml:"HttpMessage,omitempty"`
+	Error       string `json:"error,omitempty" xml:"Error,omitempty"`
+	Message     string `json:"message,omitempty" xml:"Message,omitempty"`
 }
 
 func NewResponseHandler(w http.ResponseWriter, r *http.Request) *ResponseHandler {
@@ -36,12 +37,21 @@ func NewResponseHandler(w http.ResponseWriter, r *http.Request) *ResponseHandler
 	}
 }
 
-// NewError loads initial data into the AuthError structure
-func (resp *ResponseHandler) NewError(status int, message string) {
-	resp.Error = &AuthError{
-		Status:    status,
-		HttpError: ResolveStatus(status),
-		Message:   message,
+// NewError loads error data into the Response structure
+func (resp *ResponseHandler) NewError(status int, err string) {
+	resp.Error = &Response{
+		Status:      status,
+		HttpMessage: ResolveStatus(status),
+		Error:       err,
+	}
+}
+
+// NewResponse loads response data into the Response structure
+func (resp *ResponseHandler) NewResponse(status int, message string) {
+	resp.Error = &Response{
+		Status:      status,
+		HttpMessage: ResolveStatus(status),
+		Message:     message,
 	}
 }
 
@@ -122,7 +132,7 @@ func (h *ResponseHandler) RespondXml() {
 	h.Writer.Write(body)
 }
 
-// String converts the AuthError struct to a string
-func (authErr *AuthError) String() string {
-	return strconv.Itoa(authErr.Status) + " - " + authErr.HttpError + ": " + authErr.Message
+// String converts the Response struct to a string
+func (r *Response) String() string {
+	return strconv.Itoa(r.Status) + " - " + r.HttpMessage + ": [Error]" + r.Error + " [Message] " + r.Message
 }
