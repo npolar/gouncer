@@ -16,7 +16,7 @@ func main() {
 
 func InitGouncer() {
 	gouncer := cli.NewApp()
-	gouncer.Version = "0.0.1"
+	gouncer.Version = "0.1.0"
 	gouncer.Name = "gouncer"
 	gouncer.Usage = "A high performance auth API"
 	gouncer.Author = "Ruben Dens"
