@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"github.com/npolar/toki"
 	"io"
 	"log"
 	"math/rand"
@@ -25,6 +26,8 @@ type Credentials struct {
 	HashAlg  crypto.Hash
 	Secret   string
 	Backend  *Backend
+	Jwt      *toki.JsonWebToken
+	UserInfo map[string]interface{}
 }
 
 func (creds *Credentials) ParseAuthHeader(value string) error {
@@ -180,4 +183,49 @@ func (creds *Credentials) ResolveGroupsToSystems(groups []interface{}) []interfa
 	}
 
 	return systems
+}
+
+// ValidCredentials returns true if the token or basic auth info provided is valid
+func (creds *Credentials) ValidCredentials() (bool, error) {
+	if creds.Token == "" && creds.Password != "" {
+		return creds.ValidBasicAuth()
+	} else {
+		return creds.ValidToken()
+	}
+}
+
+func (creds *Credentials) ValidBasicAuth() (bool, error) {
+	userInfo, err := creds.FetchUser()
+
+	if err == nil {
+		// Set the UserInfo to the retrieved user doc
+		creds.UserInfo = userInfo
+
+		creds.ResolveHashAlg(userInfo["hash"].(string))
+		return creds.ValidatePasswordHash(userInfo["password"].(string))
+	}
+
+	return false, err
+}
+
+func (creds *Credentials) ValidToken() (bool, error) {
+	token := toki.NewJsonWebToken()
+	err := token.Parse(creds.Token)
+
+	if err == nil {
+		// Set the JWT to the parsed token
+		creds.Jwt = token
+
+		creds.Username = token.Claim.Content["user"].(string)
+		item, cerr := creds.Backend.Cache.Get(creds.Username)
+		err = cerr
+
+		if err == nil {
+			secret := string(item.Value)
+
+			return token.Valid(secret)
+		}
+	}
+
+	return false, err
 }
