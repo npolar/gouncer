@@ -22,6 +22,7 @@ type Mail struct {
 
 type MailConfig struct {
 	Sender         string // Email address the messages are sent from
+	LinkTimeout    int32  // Time confirmation and cancellation links stay active
 	ConfirmSubject string // Confirmation mail subject field
 	ConfirmMessage string // Confirmation mail content body
 	CancelSubject  string // Cancellation mail subject field
