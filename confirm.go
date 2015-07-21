@@ -16,6 +16,7 @@ func NewConfirm(h *ResponseHandler) *Confirm {
 	}
 }
 
+// Registration completes the registration process after the user clicks the confirmation link
 func (c *Confirm) Registration() {
 	segs := strings.Split(c.Handler.HttpRequest.URL.Path, "/")
 
