@@ -81,14 +81,22 @@ func (srv *Server) Start() {
 		AllowedHeaders: []string{"Accept", "Content-Type", "Authorization", "Origin"},
 	})
 
-	handlers := [...]HandlerDef{
+	handlers := []HandlerDef{
 		HandlerDef{[]string{"/"}, srv.InfoHandler},
 		HandlerDef{[]string{"/authenticate", "/authenticate/"}, srv.AuthenticationHandler},
 		HandlerDef{[]string{"/authorize", "/authorize/"}, srv.AuthorizationHandler},
-		HandlerDef{[]string{"/register", "/register/"}, srv.RegistrationHandler},
-		HandlerDef{[]string{"/unregister", "/unregister/"}, srv.UnRegHandler},
-		HandlerDef{[]string{"/cancel", "/cancel/"}, srv.CancelationHandler},
-		HandlerDef{[]string{"/confirm", "/confirm/"}, srv.ConfirmationHandler},
+	}
+
+	// If an smtp server is configured enable the account registration routes
+	if srv.Smtp != "" {
+		regHandlers := []HandlerDef{
+			HandlerDef{[]string{"/register", "/register/"}, srv.RegistrationHandler},
+			HandlerDef{[]string{"/unregister", "/unregister/"}, srv.UnRegHandler},
+			HandlerDef{[]string{"/cancel", "/cancel/"}, srv.CancelationHandler},
+			HandlerDef{[]string{"/confirm", "/confirm/"}, srv.ConfirmationHandler},
+		}
+
+		handlers = append(handlers, regHandlers...)
 	}
 
 	for _, h := range handlers {
