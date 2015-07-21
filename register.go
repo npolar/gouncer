@@ -4,7 +4,6 @@ import (
 	"crypto"
 	"encoding/json"
 	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/npolar/toki"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -90,60 +89,41 @@ func (r *Register) processRegistration() {
 }
 
 func (r *Register) processCancelation() {
-	if r.Token == "" && r.Credentials.Password != "" {
-		r.AuthorizedUser()
-	} else {
-		r.AuthorizedToken()
-	}
-}
-
-func (r *Register) AuthorizedUser() {
-
-}
-
-func (r *Register) AuthorizedToken() {
 	var err error
-	token := toki.NewJsonWebToken()
-	err = token.Parse(r.Token)
 
-	if err == nil {
-		username := token.Claim.Content["user"].(string)
-		r.Username = username
+	valid, cerr := r.ValidCredentials()
+	err = cerr
 
-		item, cerr := r.Backend.Cache.Get(username)
-		err = cerr
-
-		if err == nil {
-
-			secret := string(item.Value)
-			valid, verr := token.Valid(secret)
-			err = verr
-
-			if valid {
-
-				r.Credentials.HashAlg = crypto.SHA1
-				id := r.Credentials.GenerateHash(username + r.TimeSalt() + r.CharSalt(32))
-
-				err = r.Backend.Cache.Set(&memcache.Item{Key: id, Value: []byte(username), Expiration: r.LinkTimeout})
-
-				if err == nil {
-					mail := NewMailClient(r.Username, id)
-					mail.MailConfig = r.MailConfig
-					mail.Backend = r.Backend
-					mail.Core = r.Core
-					if err := mail.Cancellation(); err == nil {
-						r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.Username+". To complete the cancellation click the link inside.")
-					} else {
-						r.Handler.NewError(http.StatusInternalServerError, err.Error())
-					}
-				}
-			}
-		}
+	if valid {
+		err = r.cancelAccount()
 	}
 
 	if err != nil {
 		r.Handler.NewError(http.StatusUnauthorized, err.Error())
 	}
+}
+
+func (r *Register) cancelAccount() error {
+	var err error
+
+	r.Credentials.HashAlg = crypto.SHA1
+	id := r.Credentials.GenerateHash(r.Username + r.TimeSalt() + r.CharSalt(32))
+
+	err = r.Backend.Cache.Set(&memcache.Item{Key: id, Value: []byte(r.Username), Expiration: r.LinkTimeout})
+
+	if err == nil {
+		mail := NewMailClient(r.Username, id)
+		mail.MailConfig = r.MailConfig
+		mail.Backend = r.Backend
+		mail.Core = r.Core
+		if mErr := mail.Cancellation(); mErr == nil {
+			r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.Username+". To complete the cancellation click the link inside.")
+		} else {
+			err = mErr
+		}
+	}
+
+	return err
 }
 
 // cacheRegistrationRequest generates a password has for the password in the request and
