@@ -53,12 +53,6 @@ type Token struct {
 	Revalidation int32
 }
 
-// Registration groups
-type Registration struct {
-	Domain string
-	Groups []string
-}
-
 type Info struct {
 	Version     string `json:"version,omitempty" xml:",omitempty"`
 	Name        string `json:"name,omitempty" xml:",omitempty"`

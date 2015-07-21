@@ -19,6 +19,12 @@ type Register struct {
 	Groups map[string]Registration
 }
 
+// Registration groups
+type Registration struct {
+	Domain string
+	Groups []string
+}
+
 type RegistrationInfo struct {
 	Email    string   `json:"_id,omitempty"`
 	Name     string   `json:"name,omitempty"`
