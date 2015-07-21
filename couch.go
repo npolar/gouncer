@@ -72,6 +72,28 @@ func (couch *CouchDB) Post(document []byte) (map[string]interface{}, error) {
 	return nil, err
 }
 
+func (couch *CouchDB) Delete(id string) (map[string]interface{}, error) {
+	var err error
+	doc, getErr := couch.Get(id)
+	err = getErr
+
+	if err == nil {
+		rev := doc["_rev"].(string)
+		if req, reqErr := http.NewRequest("DELETE", couch.url()+"/"+id+"?rev="+rev, nil); reqErr == nil {
+			response, respErr := http.DefaultClient.Do(req)
+			err = respErr
+
+			if err == nil {
+				return couch.parseResponse(response.Body)
+			}
+		} else {
+			err = reqErr
+		}
+	}
+
+	return nil, err
+}
+
 // generateBulkBody generates the CouchDB bulk body. {"keys":["id1",...,"idn"]}
 func (couch *CouchDB) generateBulkBody(ids interface{}) ([]byte, error) {
 	var bulk = make(map[string]interface{})
