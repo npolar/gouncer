@@ -80,6 +80,7 @@ func (m *Mail) GenerateCancellationLink() string {
 	return "https://" + m.ResolveHost() + "/cancel/" + m.LinkID
 }
 
+// ResolveHost tries to resolve the link host
 func (m *Mail) ResolveHost() string {
 	// Set host to localhost as default
 	host := "localhost"
@@ -96,6 +97,7 @@ func (m *Mail) ResolveHost() string {
 	return host + m.Port
 }
 
+// Generate an SMTP request with the provided message
 func (m *Mail) SendMail(message string) error {
 	// Connect to the remote SMTP server specified through the commandline.
 	c, err := smtp.Dial(m.Smtp)
