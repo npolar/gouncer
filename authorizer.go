@@ -2,7 +2,6 @@ package gouncer
 
 import (
 	"encoding/json"
-	"github.com/npolar/toki"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -52,27 +51,23 @@ func (auth *Authorizer) ValidateRequest(req map[string]interface{}) {
 
 // AutorizedUser checks if the user has any access rights for the system
 func (auth *Authorizer) AuthorizedUser(system string) {
-	userInfo, err := auth.FetchUser()
+	var err error
 
-	if err == nil {
-		auth.ResolveHashAlg(userInfo["hash"].(string))
+	valid, cerr := auth.ValidBasicAuth()
+	err = cerr
 
-		valid, verr := auth.ValidatePasswordHash(userInfo["password"].(string))
-		err = verr
+	if valid {
+		var accessList []interface{}
 
-		if valid {
-			var accessList []interface{}
-
-			if groups, exists := userInfo["groups"].([]interface{}); exists {
-				accessList = auth.ResolveGroupsToSystems(groups)
-			}
-
-			if list, exists := userInfo["systems"].([]interface{}); exists {
-				accessList = auth.ResolveDuplicateSystems(list, accessList)
-			}
-
-			auth.SystemAccessible(system, accessList)
+		if groups, exists := auth.UserInfo["groups"].([]interface{}); exists {
+			accessList = auth.ResolveGroupsToSystems(groups)
 		}
+
+		if list, exists := auth.UserInfo["systems"].([]interface{}); exists {
+			accessList = auth.ResolveDuplicateSystems(list, accessList)
+		}
+
+		auth.SystemAccessible(system, accessList)
 	}
 
 	if err != nil {
@@ -82,33 +77,22 @@ func (auth *Authorizer) AuthorizedUser(system string) {
 
 // AuthorizedToken checks if the token has access rights for the system
 func (auth *Authorizer) AuthorizedToken(system string) {
-	token := toki.NewJsonWebToken()
-	err := token.Parse(auth.Token)
+	var err error
 
-	if err == nil {
-		username := token.Claim.Content["user"].(string)
-		item, cerr := auth.Backend.Cache.Get(username)
-		err = cerr
+	valid, cerr := auth.ValidToken()
+	err = cerr
 
-		if err == nil {
-			secret := string(item.Value)
+	if valid {
+		var accessList []interface{}
 
-			valid, verr := token.Valid(secret)
-			err = verr
-
-			if valid {
-				var accessList []interface{}
-
-				if token.Claim.Content["systems"] != nil {
-					accessList = token.Claim.Content["systems"].([]interface{})
-				}
-
-				auth.SystemAccessible(system, accessList)
-				// Touch the memcache instance only when token validation succeeds
-				// @TODO review refresh strategy (can cause infinit keep-alive)
-				auth.Backend.Cache.Touch(username, auth.Expiration)
-			}
+		if auth.Jwt.Claim.Content["systems"] != nil {
+			accessList = auth.Jwt.Claim.Content["systems"].([]interface{})
 		}
+
+		auth.SystemAccessible(system, accessList)
+		// Touch the memcache instance only when token validation succeeds
+		// @TODO review refresh strategy (can cause infinit keep-alive)
+		auth.Backend.Cache.Touch(auth.Username, auth.Expiration)
 	}
 
 	if err != nil {
