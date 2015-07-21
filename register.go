@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/npolar/toki"
 	"io/ioutil"
 	"log"
 	"net"
@@ -16,7 +17,7 @@ import (
 
 type Register struct {
 	*Core
-	*Confirmation
+	*Mail
 	Credentials
 	Handler *ResponseHandler
 	RegistrationInfo
@@ -41,7 +42,7 @@ func NewRegistration(h *ResponseHandler) *Register {
 // Submit triggers the registration sequence.
 func (r *Register) Submit() {
 	if err := r.parseUserInfo(); err == nil {
-		r.processRequest()
+		r.processRegistration()
 	} else {
 		r.Handler.NewError(http.StatusNotAcceptable, err.Error())
 	}
@@ -49,7 +50,18 @@ func (r *Register) Submit() {
 	r.Handler.Respond()
 }
 
-func (r *Register) processRequest() {
+// Cancel triggers the account cancellation sequence
+func (r *Register) Cancel() {
+	if err := r.ParseAuthHeader(r.Handler.HttpRequest.Header.Get("Authorization")); err == nil {
+		r.processCancelation()
+	} else {
+		r.Handler.NewError(http.StatusUnauthorized, "")
+	}
+
+	r.Handler.Respond()
+}
+
+func (r *Register) processRegistration() {
 	couch := NewCouch(r.Backend.Couchdb, r.Backend.Userdb)
 	_, err := couch.Get(r.RegistrationInfo.Email)
 
@@ -66,6 +78,56 @@ func (r *Register) processRequest() {
 		}
 	} else {
 		r.Handler.NewError(http.StatusConflict, "This uers already exists.")
+	}
+}
+
+func (r *Register) processCancelation() {
+	if r.Token == "" && r.Credentials.Password != "" {
+		r.AuthorizedUser()
+	} else {
+		r.AuthorizedToken()
+	}
+}
+
+func (r *Register) AuthorizedUser() {
+
+}
+
+func (r *Register) AuthorizedToken() {
+	var err error
+	token := toki.NewJsonWebToken()
+	err = token.Parse(r.Token)
+
+	if err == nil {
+		username := token.Claim.Content["user"].(string)
+		r.Username = username
+
+		item, cerr := r.Backend.Cache.Get(username)
+		err = cerr
+
+		if err == nil {
+
+			secret := string(item.Value)
+			valid, verr := token.Valid(secret)
+			err = verr
+
+			if valid {
+
+				r.Credentials.HashAlg = crypto.SHA1
+				key := r.Credentials.GenerateHash(username + r.TimeSalt() + r.CharSalt(32))
+
+				err = r.Backend.Cache.Set(&memcache.Item{Key: key, Value: []byte(username), Expiration: 1200})
+
+				if err == nil {
+					r.sendCancelationMail(r.resolveHost(), key)
+					r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.Username+". To complete the cancellation click the link inside.")
+				}
+			}
+		}
+	}
+
+	if err != nil {
+		r.Handler.NewError(http.StatusUnauthorized, err.Error())
 	}
 }
 
@@ -176,9 +238,9 @@ func (r *Register) sendConfirmationMail(host string, confirmationID string) {
 
 	// Load the mail contents
 
-	if r.Confirmation.Message != "" {
-		message = "Subject:" + r.Confirmation.Subject + "\n\n"
-		message += confirmregxp.ReplaceAllString(r.Confirmation.Message, link)
+	if r.Mail.ConfirmMessage != "" {
+		message = "Subject:" + r.Mail.ConfirmSubject + "\n\n"
+		message += confirmregxp.ReplaceAllString(r.Mail.ConfirmMessage, link)
 	} else { // When no message is configured use a generic registration message
 		message = "Subject:Account Registration\n\nThank you for registering.\n\nTo complete your registration please click the following link: " + link + "\n\nIf you did not try to register an account with us feel free to ignore or delete this message."
 	}
@@ -190,13 +252,66 @@ func (r *Register) sendConfirmationMail(host string, confirmationID string) {
 	}
 
 	// Set the sender
-	if err := c.Mail("data@npolar.no"); err != nil {
+	if err := c.Mail(r.Mail.Sender); err != nil {
 		log.Println(err)
 	}
 
 	// Set the recipient
 	if err := c.Rcpt(r.RegistrationInfo.Email); err != nil {
 		log.Println(err)
+	}
+
+	// Send the email body.
+	wc, err := c.Data()
+	if err != nil {
+		log.Println(err)
+	}
+	_, err = fmt.Fprintf(wc, message)
+	if err != nil {
+		log.Println(err)
+	}
+	err = wc.Close()
+	if err != nil {
+		log.Println(err)
+	}
+
+	// Send the QUIT command and close the connection.
+	err = c.Quit()
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (r *Register) sendCancelationMail(host string, cancellationID string) {
+	var message string
+	confirmregxp := regexp.MustCompile("{{cancel}}")
+	link := "https://" + host + r.Core.Port + "/cancel/" + cancellationID
+
+	// Load the mail contents
+
+	if r.Mail.CancelMessage != "" {
+		message = "Subject:" + r.Mail.CancelSubject + "\n\n"
+		message += confirmregxp.ReplaceAllString(r.Mail.CancelMessage, link)
+	} else { // When no message is configured use a generic registration message
+		message = "Subject:Account Cancellation\n\nTo complete your cancellation request please click the following link: " + link + "\n\nIf you did not try to cancel your account delete this message."
+	}
+
+	// Load the mail contents
+
+	// Connect to the remote SMTP server specified through the commandline.
+	c, err := smtp.Dial(r.Backend.Smtp)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// Set the sender
+	if err := c.Mail(r.Mail.Sender); err != nil {
+		log.Println(err)
+	}
+
+	// Set the recipient
+	if err := c.Rcpt(r.Username); err != nil {
+		log.Println(r.Username, err)
 	}
 
 	// Send the email body.
