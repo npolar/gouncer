@@ -124,7 +124,7 @@ func (r *Register) AuthorizedToken() {
 				r.Credentials.HashAlg = crypto.SHA1
 				id := r.Credentials.GenerateHash(username + r.TimeSalt() + r.CharSalt(32))
 
-				err = r.Backend.Cache.Set(&memcache.Item{Key: id, Value: []byte(username), Expiration: 1200})
+				err = r.Backend.Cache.Set(&memcache.Item{Key: id, Value: []byte(username), Expiration: r.LinkTimeout})
 
 				if err == nil {
 					mail := NewMailClient(r.Username, id)
@@ -171,7 +171,7 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 	userDoc, _ := json.Marshal(user)
 
 	// Create a new cache entry for the registration request
-	err := r.Backend.Cache.Set(&memcache.Item{Key: key, Value: userDoc, Expiration: 1200})
+	err := r.Backend.Cache.Set(&memcache.Item{Key: key, Value: userDoc, Expiration: r.LinkTimeout})
 	return key, err
 }
 
