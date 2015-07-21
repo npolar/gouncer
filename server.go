@@ -19,7 +19,7 @@ type Config struct {
 	*Backend
 	*Token
 	Registrations map[string]Registration
-	*Confirmation
+	*Mail
 }
 
 // Core server setup
@@ -59,9 +59,12 @@ type Registration struct {
 	Groups []string
 }
 
-type Confirmation struct {
-	Subject string
-	Message string
+type Mail struct {
+	Sender         string
+	ConfirmSubject string
+	ConfirmMessage string
+	CancelSubject  string
+	CancelMessage  string
 }
 
 type Info struct {
@@ -97,6 +100,8 @@ func (srv *Server) Start() {
 		HandlerDef{[]string{"/authenticate", "/authenticate/"}, srv.AuthenticationHandler},
 		HandlerDef{[]string{"/authorize", "/authorize/"}, srv.AuthorizationHandler},
 		HandlerDef{[]string{"/register", "/register/"}, srv.RegistrationHandler},
+		HandlerDef{[]string{"/unregister", "/unregister/"}, srv.UnRegHandler},
+		HandlerDef{[]string{"/cancel", "/cancel/"}, srv.CancelationHandler},
 		HandlerDef{[]string{"/confirm", "/confirm/"}, srv.ConfirmationHandler},
 	}
 
@@ -125,7 +130,7 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 		// Execute a token request
 		authenticator.HandleTokenRequest()
 	} else {
-		handler.NewError(http.StatusMethodNotAllowed, "")
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
 		handler.Respond()
 	}
 
@@ -143,7 +148,7 @@ func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) 
 		// Handle authorization
 		authorizer.AuthorizeRequest()
 	} else {
-		handler.NewError(http.StatusMethodNotAllowed, "")
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
 		handler.Respond()
 	}
 
@@ -157,10 +162,37 @@ func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		registration.Core = srv.Core
 		registration.Backend = srv.Backend
 		registration.Groups = srv.Registrations
-		registration.Confirmation = srv.Confirmation
+		registration.Mail = srv.Mail
 		registration.Submit()
 	} else {
-		handler.NewError(http.StatusMethodNotAllowed, "")
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
+		handler.Respond()
+	}
+}
+
+func (srv *Server) UnRegHandler(w http.ResponseWriter, r *http.Request) {
+	handler := srv.ConfigureHandler(w, r)
+	if r.Method == "DELETE" {
+		registration := NewRegistration(handler)
+		registration.Core = srv.Core
+		registration.Backend = srv.Backend
+		registration.Groups = srv.Registrations
+		registration.Mail = srv.Mail
+		registration.Cancel()
+	} else {
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [DELETE]")
+		handler.Respond()
+	}
+}
+
+func (srv *Server) CancelationHandler(w http.ResponseWriter, r *http.Request) {
+	handler := srv.ConfigureHandler(w, r)
+	if r.Method == "GET" {
+		cancellation := NewCancellation(handler)
+		cancellation.Backend = srv.Backend
+		cancellation.Confirm()
+	} else {
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
 		handler.Respond()
 	}
 }
@@ -173,7 +205,7 @@ func (srv *Server) ConfirmationHandler(w http.ResponseWriter, r *http.Request) {
 		confirm.Backend = srv.Backend
 		confirm.Registration()
 	} else {
-		handler.NewError(http.StatusMethodNotAllowed, "")
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
 		handler.Respond()
 	}
 }
