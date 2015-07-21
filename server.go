@@ -19,7 +19,7 @@ type Config struct {
 	*Backend
 	*Token
 	Registrations map[string]Registration
-	*Mail
+	*MailConfig
 }
 
 // Core server setup
@@ -57,14 +57,6 @@ type Token struct {
 type Registration struct {
 	Domain string
 	Groups []string
-}
-
-type Mail struct {
-	Sender         string
-	ConfirmSubject string
-	ConfirmMessage string
-	CancelSubject  string
-	CancelMessage  string
 }
 
 type Info struct {
@@ -162,7 +154,7 @@ func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		registration.Core = srv.Core
 		registration.Backend = srv.Backend
 		registration.Groups = srv.Registrations
-		registration.Mail = srv.Mail
+		registration.MailConfig = srv.MailConfig
 		registration.Submit()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
@@ -177,7 +169,7 @@ func (srv *Server) UnRegHandler(w http.ResponseWriter, r *http.Request) {
 		registration.Core = srv.Core
 		registration.Backend = srv.Backend
 		registration.Groups = srv.Registrations
-		registration.Mail = srv.Mail
+		registration.MailConfig = srv.MailConfig
 		registration.Cancel()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [DELETE]")
