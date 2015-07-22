@@ -201,8 +201,12 @@ func (creds *Credentials) ValidBasicAuth() (bool, error) {
 		// Set the UserInfo to the retrieved user doc
 		creds.UserInfo = userInfo
 
-		creds.ResolveHashAlg(userInfo["hash"].(string))
-		return creds.ValidatePasswordHash(userInfo["password"].(string))
+		if userInfo["active"].(bool) == true {
+			creds.ResolveHashAlg(userInfo["hash"].(string))
+			return creds.ValidatePasswordHash(userInfo["password"].(string))
+		} else {
+			err = errors.New("This account has been disabled. Please contact the administrator for more info.")
+		}
 	}
 
 	return false, err
