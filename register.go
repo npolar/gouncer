@@ -25,7 +25,8 @@ type Registration struct {
 }
 
 type RegistrationInfo struct {
-	Email    string   `json:"_id,omitempty"`
+	Id       string   `json:"_id,omitempty"`
+	Email    string   `json:"email,omitempty"`
 	Name     string   `json:"name,omitempty"`
 	Password string   `json:"password,omitempty"`
 	Active   bool     `json:"active,omitempty"`
@@ -144,6 +145,7 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 
 	// Build the user object
 	user := &RegistrationInfo{
+		Id:       r.RegistrationInfo.Email, // Set the Email address as the id
 		Email:    r.RegistrationInfo.Email,
 		Name:     r.RegistrationInfo.Name,
 		Password: passhash,
