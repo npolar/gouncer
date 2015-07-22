@@ -67,20 +67,24 @@ func (r *Register) processRegistration() {
 
 	if err != nil {
 		if err.Error() == "404 Object Not Found" {
-			if id, err := r.cacheRegistrationRequest(); err == nil {
+			id, rerr := r.cacheRegistrationRequest()
+			err = rerr
+
+			if err == nil {
 				mail := NewMailClient(r.RegistrationInfo.Email, id)
 				mail.MailConfig = r.MailConfig
 				mail.Backend = r.Backend
 				mail.Core = r.Core
-				if err := mail.Confirmation(); err == nil {
+
+				err = mail.Confirmation()
+
+				if err == nil {
 					r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". To complete the registration click the link inside.")
-				} else {
-					r.Handler.NewError(http.StatusInternalServerError, err.Error())
 				}
-			} else {
-				r.Handler.NewError(http.StatusInternalServerError, err.Error())
 			}
-		} else {
+		}
+
+		if err != nil {
 			r.Handler.NewError(http.StatusInternalServerError, err.Error())
 		}
 	} else {
