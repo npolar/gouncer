@@ -37,18 +37,10 @@ func (auth *Authenticator) HandleTokenRequest() {
 // ProcessTokenRequest retrieves the requested user and checks if the credentials match. If everything
 // checks out it calls the TokenResponse to generate the actual response
 func (auth *Authenticator) ProcessTokenRequest() {
-	userInfo, err := auth.FetchUser()
+	valid, err := auth.ValidBasicAuth()
 
-	if err == nil {
-		auth.ResolveHashAlg(userInfo["hash"].(string))
-
-		// Check if the provided password matches that in the user database
-		valid, verr := auth.ValidatePasswordHash(userInfo["password"].(string))
-		err = verr
-
-		if valid {
-			auth.TokenResponse(userInfo)
-		}
+	if valid {
+		auth.TokenResponse(auth.UserInfo)
 	}
 
 	if err != nil {
