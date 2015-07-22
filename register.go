@@ -53,7 +53,7 @@ func (r *Register) Submit() {
 // Cancel triggers the account cancellation sequence
 func (r *Register) Cancel() {
 	if err := r.ParseAuthHeader(r.Handler.HttpRequest.Header.Get("Authorization")); err == nil {
-		r.processCancelation()
+		r.processCancellation()
 	} else {
 		r.Handler.NewError(http.StatusUnauthorized, "")
 	}
@@ -88,7 +88,7 @@ func (r *Register) processRegistration() {
 	}
 }
 
-func (r *Register) processCancelation() {
+func (r *Register) processCancellation() {
 	var err error
 
 	valid, cerr := r.ValidCredentials()
