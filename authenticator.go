@@ -102,6 +102,10 @@ func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string
 
 	content["user"] = auth.Username
 
+	if name, exists := userData["name"]; exists {
+		content["name"] = name
+	}
+
 	if uri, exists := userData["uri"]; exists {
 		content["uri"] = uri
 	}
