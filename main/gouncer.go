@@ -92,12 +92,6 @@ func LoadFlags() []cli.Flag {
 			Value: "8950",
 			Usage: "Server port.",
 		},
-		cli.IntFlag{
-			Name:   "revalidation, r",
-			Value:  1800,
-			Usage:  "Token revalidation time in seconds",
-			EnvVar: "GOUNCER_TOKEN_REVALIDATE",
-		},
 		cli.StringFlag{
 			Name:   "smtp, s",
 			Usage:  "Set SMTP server to use for notification mails",
@@ -171,7 +165,7 @@ func ServerFromCli(c *cli.Context) *gouncer.Server {
 		Smtp:     c.String("smtp"),
 	}
 
-	token := &gouncer.Token{c.String("algorithm"), int32(c.Int("expiration")), int32(c.Int("revalidation"))}
+	token := &gouncer.Token{c.String("algorithm"), int32(c.Int("expiration"))}
 
 	// Create configuration
 	cfg := &gouncer.Config{
