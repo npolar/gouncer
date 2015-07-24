@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"github.com/npolar/toki"
 	"io"
@@ -23,11 +24,17 @@ type Credentials struct {
 	Username string
 	Password string
 	Token    string
+	Obj      *CacheObj
 	HashAlg  crypto.Hash
 	Secret   string
-	Backend  *Backend
+	*Backend
 	Jwt      *toki.JsonWebToken
 	UserInfo map[string]interface{}
+}
+
+type CacheObj struct {
+	Secret           string
+	RevalidationCode string
 }
 
 func (creds *Credentials) ParseAuthHeader(value string) error {
@@ -96,6 +103,11 @@ func (creds *Credentials) GenerateSecret() {
 	creds.Secret = creds.GenerateHash(creds.PasswordHash() + creds.TimeSalt() + creds.CharSalt(16))
 }
 
+func (creds *Credentials) GenerateRevalidationCode() string {
+	creds.HashAlg = crypto.SHA1
+	return creds.GenerateHash(creds.Username + creds.TimeSalt() + creds.CharSalt(24))
+}
+
 func (creds *Credentials) TimeSalt() string {
 	rand.Seed(time.Now().UTC().UnixNano())
 	offset := rand.Intn(100000)
@@ -152,7 +164,7 @@ func (creds *Credentials) ResolveHashAlg(hash string) {
 
 // FetchUser gets the user info from the database
 func (creds *Credentials) FetchUser() (map[string]interface{}, error) {
-	couch := NewCouch(creds.Backend.Couchdb, creds.Backend.Userdb)
+	couch := NewCouch(creds.Couchdb, creds.Userdb)
 	doc, err := couch.Get(creds.Username)
 
 	if err != nil {
@@ -165,7 +177,7 @@ func (creds *Credentials) FetchUser() (map[string]interface{}, error) {
 // ResolveGroupsToSystems checks the group info for the user and translates it into a
 // a list of systems that user has access to with the access rights they have on that system
 func (creds *Credentials) ResolveGroupsToSystems(groups []interface{}) []interface{} {
-	couch := NewCouch(creds.Backend.Couchdb, creds.Backend.Groupdb)
+	couch := NewCouch(creds.Couchdb, creds.Groupdb)
 	docs, err := couch.GetMultiple(groups)
 
 	if err != nil {
@@ -213,23 +225,70 @@ func (creds *Credentials) ValidBasicAuth() (bool, error) {
 }
 
 func (creds *Credentials) ValidToken() (bool, error) {
-	token := toki.NewJsonWebToken()
-	err := token.Parse(creds.Token)
+	err := creds.parseToken()
 
 	if err == nil {
-		// Set the JWT to the parsed token
-		creds.Jwt = token
-
-		creds.Username = token.Claim.Content["user"].(string)
-		item, cerr := creds.Backend.Cache.Get(creds.Username)
+		creds.Username = creds.Jwt.Claim.Content["user"].(string)
+		item, cerr := creds.Cache.Get(creds.Username)
 		err = cerr
 
 		if err == nil {
-			secret := string(item.Value)
+			err = creds.decodeCache(item.Value)
 
-			return token.Valid(secret)
+			if err == nil {
+				return creds.Jwt.Valid(creds.Obj.Secret)
+			}
 		}
 	}
 
 	return false, err
+}
+
+func (creds *Credentials) Revalidate(code string) (bool, error) {
+	err := creds.parseToken()
+
+	if err == nil {
+		creds.Username = creds.Jwt.Claim.Content["user"].(string)
+
+		item, cerr := creds.Cache.Get(creds.Username)
+		err = cerr
+
+		if err == nil {
+			err = creds.decodeCache(item.Value)
+
+			if err == nil && code == creds.Obj.RevalidationCode {
+				valid, verr := creds.Jwt.Valid(creds.Obj.Secret)
+				err = verr
+
+				if valid {
+					info, cerr := creds.FetchUser()
+					err = cerr
+
+					if err == nil {
+						if info["active"].(bool) {
+							creds.UserInfo = info
+							return valid, err
+						} else {
+							err = errors.New("This account has been disabled. Please contact the administrator for more info.")
+							creds.Cache.Delete(creds.Username) // Delete the current userobj
+						}
+					}
+				}
+			} else {
+				err = errors.New("Revalidation code mismatch")
+			}
+		}
+	}
+
+	return false, err
+}
+
+func (creds *Credentials) parseToken() error {
+	creds.Jwt = toki.NewJsonWebToken()
+	err := creds.Jwt.Parse(creds.Token)
+	return err
+}
+
+func (creds *Credentials) decodeCache(cacheObj []byte) error {
+	return json.Unmarshal(cacheObj, &creds.Obj)
 }

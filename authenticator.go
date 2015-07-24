@@ -1,16 +1,17 @@
 package gouncer
 
 import (
+	"encoding/json"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/npolar/toki"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
 
 type Authenticator struct {
 	Credentials
-	Expiration int32 // Token expiration time
-	TokenAlg   string
+	*Token
 	*ResponseHandler
 }
 
@@ -34,6 +35,16 @@ func (auth *Authenticator) HandleTokenRequest() {
 	auth.Respond()
 }
 
+func (auth *Authenticator) HandleRevalidationRequest() {
+	if err := auth.ParseAuthHeader(auth.HttpRequest.Header.Get("Authorization")); err == nil {
+		auth.ProcessRevalidationRequest()
+	} else {
+		auth.NewError(http.StatusUnauthorized, err.Error())
+	}
+
+	auth.Respond()
+}
+
 // ProcessTokenRequest retrieves the requested user and checks if the credentials match. If everything
 // checks out it calls the TokenResponse to generate the actual response
 func (auth *Authenticator) ProcessTokenRequest() {
@@ -48,12 +59,36 @@ func (auth *Authenticator) ProcessTokenRequest() {
 	}
 }
 
+func (auth *Authenticator) ProcessRevalidationRequest() {
+	body, err := ioutil.ReadAll(auth.HttpRequest.Body)
+	defer auth.HttpRequest.Body.Close()
+
+	if err == nil {
+		var doc = make(map[string]interface{})
+
+		err = json.Unmarshal(body, &doc)
+
+		if err == nil {
+			valid, rerr := auth.Revalidate(doc["revalidation_code"].(string))
+			err = rerr
+
+			if valid {
+				auth.TokenResponse(auth.UserInfo)
+			}
+		}
+	}
+
+	if err != nil {
+		auth.NewError(http.StatusUnauthorized, err.Error())
+	}
+}
+
 // TokenResponse uses the toki JWT generator library to create a new JWT.
 // The resulting JWT is then set as the resonse token
 func (auth *Authenticator) TokenResponse(userInfo map[string]interface{}) {
 	auth.GenerateSecret()
 	tokenizer := toki.NewJsonWebToken()
-	tokenizer.TokenAlgorithm = auth.ResolveTokenAlgorithm()
+	tokenizer.TokenAlgorithm = auth.ResolveAlgorithm()
 
 	// Set the token contents
 	tokenizer.Claim.Content = auth.TokenBody(userInfo)
@@ -63,8 +98,10 @@ func (auth *Authenticator) TokenResponse(userInfo map[string]interface{}) {
 	token, err := tokenizer.String()
 
 	if err == nil {
+		auth.Response.RevalidationCode = auth.GenerateRevalidationCode()
+
 		// Cache the token info for validation purposes
-		err = auth.CacheTokenInfo(auth.Secret)
+		err = auth.CacheTokenInfo()
 
 		// When token info is cached respond with the token
 		if err == nil {
@@ -77,8 +114,8 @@ func (auth *Authenticator) TokenResponse(userInfo map[string]interface{}) {
 	}
 }
 
-func (auth *Authenticator) ResolveTokenAlgorithm() *toki.Algorithm {
-	switch auth.TokenAlg {
+func (auth *Authenticator) ResolveAlgorithm() *toki.Algorithm {
+	switch auth.Algorithm {
 	case "none":
 		return toki.NoAlg()
 	case "HS384":
@@ -91,8 +128,11 @@ func (auth *Authenticator) ResolveTokenAlgorithm() *toki.Algorithm {
 }
 
 // CacheTokenInfo caches the username and secret for validation purposes
-func (auth *Authenticator) CacheTokenInfo(secret string) error {
-	return auth.Backend.Cache.Set(&memcache.Item{Key: auth.Username, Value: []byte(secret), Expiration: auth.Expiration})
+func (auth *Authenticator) CacheTokenInfo() error {
+	data, err := json.Marshal(&CacheObj{auth.Secret, auth.Response.RevalidationCode})
+	err = auth.Backend.Cache.Set(&memcache.Item{Key: auth.Username, Value: data, Expiration: auth.Expiration})
+
+	return err
 }
 
 // Generate the contents that will be sent in the tokens claim body

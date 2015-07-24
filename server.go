@@ -48,9 +48,8 @@ type Backend struct {
 
 // Token information
 type Token struct {
-	Algorithm    string
-	Expiration   int32
-	Revalidation int32
+	Algorithm  string
+	Expiration int32
 }
 
 type Info struct {
@@ -114,16 +113,24 @@ func (srv *Server) Start() {
 // Authentication handler checks the method and delegates a token request
 func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request) {
 	handler := srv.ConfigureHandler(w, r)
-	if r.Method == "GET" {
+	switch r.Method {
+	case "GET":
 		// Configure the Authenticator
 		authenticator := NewAuthenticator(handler)
 		authenticator.Backend = srv.Backend
-		authenticator.TokenAlg = srv.Algorithm
-		authenticator.Expiration = srv.Expiration
+		authenticator.Token = srv.Token
 
 		// Execute a token request
 		authenticator.HandleTokenRequest()
-	} else {
+	case "POST":
+		// Configure the Authenticator
+		authenticator := NewAuthenticator(handler)
+		authenticator.Backend = srv.Backend
+		authenticator.Token = srv.Token
+
+		// Execute a revalidation request
+		authenticator.HandleRevalidationRequest()
+	default:
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
 		handler.Respond()
 	}
