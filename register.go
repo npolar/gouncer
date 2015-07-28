@@ -3,6 +3,7 @@ package gouncer
 import (
 	"crypto"
 	"encoding/json"
+	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
 	"io/ioutil"
 	"net/http"
@@ -135,6 +136,14 @@ func (r *Register) cancelAccount() error {
 // creates a memcache entry before sending the confirmation email pointing to the cached
 // reference
 func (r *Register) cacheRegistrationRequest() (string, error) {
+	if r.RegistrationInfo.Email == "" {
+		return "", errors.New("[Registration Error] Missing email")
+	}
+
+	if r.RegistrationInfo.Password == "" {
+		return "", errors.New("[Registration Error] Missing password")
+	}
+
 	r.Credentials.HashAlg = crypto.SHA512
 	r.Credentials.Password = r.RegistrationInfo.Password
 	passhash := r.Credentials.PasswordHash()
