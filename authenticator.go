@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/npolar/toki"
-	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -60,21 +59,15 @@ func (auth *Authenticator) ProcessTokenRequest() {
 }
 
 func (auth *Authenticator) ProcessRevalidationRequest() {
-	body, err := ioutil.ReadAll(auth.HttpRequest.Body)
-	defer auth.HttpRequest.Body.Close()
+	var doc = make(map[string]interface{})
+	err := DecodeJsonRequest(auth.HttpRequest.Body, &doc)
 
 	if err == nil {
-		var doc = make(map[string]interface{})
+		valid, rerr := auth.Revalidate(doc["revalidation_code"].(string))
+		err = rerr
 
-		err = json.Unmarshal(body, &doc)
-
-		if err == nil {
-			valid, rerr := auth.Revalidate(doc["revalidation_code"].(string))
-			err = rerr
-
-			if valid {
-				auth.TokenResponse(auth.UserInfo)
-			}
+		if valid {
+			auth.TokenResponse(auth.UserInfo)
 		}
 	}
 

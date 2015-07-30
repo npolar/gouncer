@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -34,13 +33,11 @@ func (couch *CouchDB) Get(id string) (map[string]interface{}, error) {
 	var doc = make(map[string]interface{})
 
 	if err == nil {
-		defer response.Body.Close() // Close the response body on return
-
 		if response.StatusCode != 200 {
 			return doc, errors.New(response.Status)
 		}
 
-		doc, err = couch.parseResponse(response.Body)
+		err = DecodeJsonRequest(response.Body, &doc)
 	}
 
 	return doc, err
@@ -65,8 +62,9 @@ func (couch *CouchDB) Post(document []byte) (map[string]interface{}, error) {
 	response, err := http.Post(couch.url(), "application/json", bytes.NewReader(document))
 
 	if err == nil {
-		defer response.Body.Close() // Close the response body on return
-		return couch.parseResponse(response.Body)
+		var data = make(map[string]interface{})
+		err = DecodeJsonRequest(response.Body, &data)
+		return data, err
 	}
 
 	return nil, err
@@ -84,7 +82,9 @@ func (couch *CouchDB) Delete(id string) (map[string]interface{}, error) {
 			err = respErr
 
 			if err == nil {
-				return couch.parseResponse(response.Body)
+				var data = make(map[string]interface{})
+				err = DecodeJsonRequest(response.Body, &data)
+				return data, err
 			}
 		} else {
 			err = reqErr
@@ -102,25 +102,13 @@ func (couch *CouchDB) generateBulkBody(ids interface{}) ([]byte, error) {
 	return json.Marshal(bulk)
 }
 
-// ParseResponse reads the couchDB response and returns the document  or an error
-func (couch *CouchDB) parseResponse(body io.ReadCloser) (map[string]interface{}, error) {
-	var doc = make(map[string]interface{})
-	data, err := ioutil.ReadAll(body)
-
-	if err == nil {
-		err = json.Unmarshal(data, &doc)
-	}
-
-	return doc, err
-}
-
 // parseBulkResponse reads the CouchDB bulk response and strips away the wrappers.
 // The result is a []interface{} containing the body for each document retrieved
 func (couch *CouchDB) parseBulkResponse(body io.ReadCloser) ([]interface{}, error) {
 	var bulk = make(map[string]interface{})
 	var docs []interface{}
 
-	bulk, err := couch.parseResponse(body) // Use the regular response parser for initial unmarshaling
+	err := DecodeJsonRequest(body, &bulk)
 
 	if err == nil {
 		// Loop over each row and grab the doc contents

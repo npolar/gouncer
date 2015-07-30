@@ -2,10 +2,8 @@ package gouncer
 
 import (
 	"crypto"
-	"encoding/json"
 	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -26,7 +24,7 @@ func NewOneTimePassword(h *ResponseHandler) *OneTime {
 
 func (o *OneTime) RequestPassword() {
 	var info RegistrationInfo
-	err := o.ExtractOnetimeRequest(&info)
+	err := DecodeJsonRequest(o.HttpRequest.Body, &info)
 
 	if err == nil {
 		if info.Email != "" {
@@ -55,15 +53,4 @@ func (o *OneTime) RequestPassword() {
 	}
 
 	o.Respond()
-}
-
-func (o *OneTime) ExtractOnetimeRequest(container *RegistrationInfo) error {
-	raw, err := ioutil.ReadAll(o.HttpRequest.Body)
-	defer o.HttpRequest.Body.Close()
-
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(raw, container)
 }

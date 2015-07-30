@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
-	"io/ioutil"
 	"net/http"
 	"regexp"
 )
@@ -14,7 +13,7 @@ type Register struct {
 	*Core
 	*MailConfig
 	Credentials
-	Handler *ResponseHandler
+	*ResponseHandler
 	RegistrationInfo
 	Groups map[string]Registration
 }
@@ -36,31 +35,29 @@ type RegistrationInfo struct {
 }
 
 func NewRegistration(h *ResponseHandler) *Register {
-	return &Register{
-		Handler: h,
-	}
+	return &Register{ResponseHandler: h}
 }
 
 // Submit triggers the registration sequence.
 func (r *Register) Submit() {
-	if err := r.parseUserInfo(); err == nil {
+	if err := DecodeJsonRequest(r.HttpRequest.Body, &r.RegistrationInfo); err == nil {
 		r.processRegistration()
 	} else {
-		r.Handler.NewError(http.StatusNotAcceptable, err.Error())
+		r.NewError(http.StatusNotAcceptable, err.Error())
 	}
 
-	r.Handler.Respond()
+	r.Respond()
 }
 
 // Cancel triggers the account cancellation sequence
 func (r *Register) Cancel() {
-	if err := r.ParseAuthHeader(r.Handler.HttpRequest.Header.Get("Authorization")); err == nil {
+	if err := r.ParseAuthHeader(r.HttpRequest.Header.Get("Authorization")); err == nil {
 		r.processCancellation()
 	} else {
-		r.Handler.NewError(http.StatusUnauthorized, "")
+		r.NewError(http.StatusUnauthorized, "")
 	}
 
-	r.Handler.Respond()
+	r.Respond()
 }
 
 func (r *Register) processRegistration() {
@@ -81,16 +78,16 @@ func (r *Register) processRegistration() {
 				err = mail.Confirmation()
 
 				if err == nil {
-					r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". To complete the registration click the link inside.")
+					r.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". To complete the registration click the link inside.")
 				}
 			}
 		}
 
 		if err != nil {
-			r.Handler.NewError(http.StatusInternalServerError, err.Error())
+			r.NewError(http.StatusInternalServerError, err.Error())
 		}
 	} else {
-		r.Handler.NewError(http.StatusConflict, "This uers already exists.")
+		r.NewError(http.StatusConflict, "This uers already exists.")
 	}
 }
 
@@ -105,7 +102,7 @@ func (r *Register) processCancellation() {
 	}
 
 	if err != nil {
-		r.Handler.NewError(http.StatusUnauthorized, err.Error())
+		r.NewError(http.StatusUnauthorized, err.Error())
 	}
 }
 
@@ -123,7 +120,7 @@ func (r *Register) cancelAccount() error {
 		mail.Backend = r.Backend
 		mail.Core = r.Core
 		if mErr := mail.Cancellation(); mErr == nil {
-			r.Handler.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.Username+". To complete the cancellation click the link inside.")
+			r.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.Username+". To complete the cancellation click the link inside.")
 		} else {
 			err = mErr
 		}
@@ -152,33 +149,17 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 	r.Credentials.HashAlg = crypto.SHA1
 	key := r.Credentials.GenerateHash(r.RegistrationInfo.Email + r.TimeSalt() + r.CharSalt(32))
 
-	// Build the user object
-	user := &RegistrationInfo{
-		Id:       r.RegistrationInfo.Email, // Set the Email address as the id
-		Email:    r.RegistrationInfo.Email,
-		Name:     r.RegistrationInfo.Name,
-		Password: passhash,
-		Active:   true,
-		Groups:   r.defaultGroups(),
-		Hash:     "sha512",
-	}
+	r.RegistrationInfo.Id = r.RegistrationInfo.Email
+	r.RegistrationInfo.Password = passhash
+	r.RegistrationInfo.Active = true
+	r.RegistrationInfo.Groups = r.defaultGroups()
+	r.RegistrationInfo.Hash = "sha512"
 
-	userDoc, _ := json.Marshal(user)
+	userDoc, _ := json.Marshal(r.RegistrationInfo)
 
 	// Create a new cache entry for the registration request
 	err := r.Backend.Cache.Set(&memcache.Item{Key: key, Value: userDoc, Expiration: r.LinkTimeout})
 	return key, err
-}
-
-// parseUserInfo unmarshals the registration body into the RegistrationInfo struct
-func (r *Register) parseUserInfo() error {
-	info, err := ioutil.ReadAll(r.Handler.HttpRequest.Body)
-
-	if err == nil {
-		json.Unmarshal(info, &r.RegistrationInfo)
-	}
-
-	return err
 }
 
 // defaultGroups tries to assing default group settings to users based on the email domain.

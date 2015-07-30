@@ -1,9 +1,6 @@
 package gouncer
 
 import (
-	"encoding/json"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -25,12 +22,16 @@ func NewAuthorizer(h *ResponseHandler) *Authorizer {
 
 // AuthorizeRequest handles authorization checking with the provided system and credentials
 func (auth *Authorizer) AuthorizeRequest() {
-	if err := auth.ParseAuthHeader(auth.HttpRequest.Header.Get("Authorization")); err == nil {
-		req := auth.ParseRequestBody(auth.HttpRequest.Body)
-		auth.HttpRequest.Body.Close()
+	err := auth.ParseAuthHeader(auth.HttpRequest.Header.Get("Authorization"))
+
+	if err == nil {
+		var req = make(map[string]interface{})
+		err = DecodeJsonRequest(auth.HttpRequest.Body, &req)
 		auth.ValidateRequest(req)
-	} else {
-		auth.NewError(http.StatusUnauthorized, "Unsupported Authorization method")
+	}
+
+	if err != nil {
+		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 
 	auth.Respond()
@@ -120,21 +121,6 @@ func (auth *Authorizer) ResolveDuplicateSystems(userSystems []interface{}, syste
 	}
 
 	return systems
-}
-
-// ParseRequestBody parses the json body of the authorization request
-func (auth *Authorizer) ParseRequestBody(body io.ReadCloser) map[string]interface{} {
-	raw, err := ioutil.ReadAll(body)
-	defer body.Close()
-
-	if err != nil {
-		auth.NewError(http.StatusUnauthorized, err.Error())
-	}
-
-	response := make(map[string]interface{})
-	json.Unmarshal(raw, &response)
-
-	return response
 }
 
 // SystemAccessible will check the users system list against the system we are authorizing.
