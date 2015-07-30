@@ -73,6 +73,15 @@ func (m *Mail) Cancellation() error {
 	return m.SendMail(message)
 }
 
+func (m *Mail) OneTimePassword(pwd string) error {
+	var message string
+
+	message = "Subject:One time password\n\n"
+	message += "You can use your email and the follwing password to login: " + pwd
+
+	return m.SendMail(message)
+}
+
 func (m *Mail) GenerateConfirmationLink() string {
 	return "https://" + m.ResolveHost() + "/confirm/" + m.LinkID
 }

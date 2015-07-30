@@ -93,6 +93,7 @@ func (srv *Server) Start() {
 			HandlerDef{[]string{"/unregister", "/unregister/"}, srv.UnRegHandler},
 			HandlerDef{[]string{"/cancel", "/cancel/"}, srv.CancelationHandler},
 			HandlerDef{[]string{"/confirm", "/confirm/"}, srv.ConfirmationHandler},
+			HandlerDef{[]string{"/onetime", "/onetime/"}, srv.OneTimeHandler},
 		}
 
 		handlers = append(handlers, regHandlers...)
@@ -137,6 +138,21 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 
 }
 
+func (srv *Server) OneTimeHandler(w http.ResponseWriter, r *http.Request) {
+	handler := srv.ConfigureHandler(w, r)
+
+	if r.Method == "POST" {
+		onetime := NewOneTimePassword(handler)
+		onetime.Backend = srv.Backend
+		onetime.MailConfig = srv.MailConfig
+
+		onetime.RequestPassword()
+	} else {
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
+		handler.Respond()
+	}
+}
+
 // AuthorizationHandler checks the http method and delegates the request to the authorizer
 func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) {
 	handler := srv.ConfigureHandler(w, r)
@@ -171,6 +187,7 @@ func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UnregHandler allows a user to unregister by sending a delete request with valid auth information
 func (srv *Server) UnRegHandler(w http.ResponseWriter, r *http.Request) {
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "DELETE" {

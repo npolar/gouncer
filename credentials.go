@@ -215,7 +215,25 @@ func (creds *Credentials) ValidBasicAuth() (bool, error) {
 
 		if userInfo["active"].(bool) == true {
 			creds.ResolveHashAlg(userInfo["hash"].(string))
-			return creds.ValidatePasswordHash(userInfo["password"].(string))
+
+			valid, perr := creds.ValidatePasswordHash(userInfo["password"].(string))
+			err = perr
+
+			// If the regular password isn't valid check for a cached one time pass
+			if !valid {
+				item, cerr := creds.Cache.Get(creds.Username)
+				err = cerr
+
+				if err == nil {
+					if creds.Password == string(item.Value) {
+						return true, err
+					} else {
+						return false, errors.New("Invalid password")
+					}
+				}
+			}
+
+			return valid, err
 		} else {
 			err = errors.New("This account has been disabled. Please contact the administrator for more info.")
 		}
