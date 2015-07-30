@@ -4,7 +4,6 @@ import (
 	"crypto"
 	"encoding/json"
 	"errors"
-	"github.com/bradfitz/gomemcache/memcache"
 	"net/http"
 	"regexp"
 )
@@ -112,7 +111,7 @@ func (r *Register) cancelAccount() error {
 	r.Credentials.HashAlg = crypto.SHA1
 	id := r.Credentials.GenerateHash(r.Username + r.TimeSalt() + r.CharSalt(32))
 
-	err = r.Backend.Cache.Set(&memcache.Item{Key: id, Value: []byte(r.Username), Expiration: r.LinkTimeout})
+	err = r.CacheCredentials(id, []byte(r.Username), r.LinkTimeout)
 
 	if err == nil {
 		mail := NewMailClient(r.Username, id)
@@ -158,7 +157,7 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 	userDoc, _ := json.Marshal(r.RegistrationInfo)
 
 	// Create a new cache entry for the registration request
-	err := r.Backend.Cache.Set(&memcache.Item{Key: key, Value: userDoc, Expiration: r.LinkTimeout})
+	err := r.CacheCredentials(key, userDoc, r.LinkTimeout)
 	return key, err
 }
 

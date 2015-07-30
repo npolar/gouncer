@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/npolar/toki"
 	"io"
 	"log"
@@ -299,6 +300,10 @@ func (creds *Credentials) Revalidate(code string) (bool, error) {
 	}
 
 	return false, err
+}
+
+func (creds *Credentials) CacheCredentials(k string, v []byte, exp int32) error {
+	return creds.Cache.Set(&memcache.Item{Key: k, Value: v, Expiration: exp})
 }
 
 func (creds *Credentials) parseToken() error {

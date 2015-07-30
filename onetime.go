@@ -3,12 +3,10 @@ package gouncer
 import (
 	"crypto"
 	"errors"
-	"github.com/bradfitz/gomemcache/memcache"
 	"net/http"
 )
 
 type OneTime struct {
-	*Backend
 	*Credentials
 	*ResponseHandler
 	*MailConfig
@@ -31,7 +29,7 @@ func (o *OneTime) RequestPassword() {
 			o.Username = info.Email
 			o.HashAlg = crypto.SHA1
 			onetimePass := o.GenerateHash(info.Email + o.CharSalt(128) + o.TimeSalt())
-			err = o.Cache.Set(&memcache.Item{Key: info.Email, Value: []byte(onetimePass), Expiration: 1800})
+			err = o.CacheCredentials(info.Email, []byte(onetimePass), 1800)
 
 			if err == nil {
 				mail := NewMailClient(info.Email, "")

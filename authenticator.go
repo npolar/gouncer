@@ -2,7 +2,6 @@ package gouncer
 
 import (
 	"encoding/json"
-	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/npolar/toki"
 	"net/http"
 	"time"
@@ -123,7 +122,10 @@ func (auth *Authenticator) ResolveAlgorithm() *toki.Algorithm {
 // CacheTokenInfo caches the username and secret for validation purposes
 func (auth *Authenticator) CacheTokenInfo() error {
 	data, err := json.Marshal(&CacheObj{auth.Secret, auth.Response.RevalidationCode})
-	err = auth.Backend.Cache.Set(&memcache.Item{Key: auth.Username, Value: data, Expiration: auth.Expiration})
+
+	if err == nil {
+		return auth.CacheCredentials(auth.Username, data, auth.Expiration)
+	}
 
 	return err
 }
