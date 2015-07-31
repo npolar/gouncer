@@ -113,8 +113,7 @@ func (srv *Server) Start() {
 // Authentication handler checks the method and delegates a token request
 func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request) {
 	handler := srv.ConfigureHandler(w, r)
-	switch r.Method {
-	case "GET":
+	if r.Method == "GET" {
 		// Configure the Authenticator
 		authenticator := NewAuthenticator(handler)
 		authenticator.Backend = srv.Backend
@@ -122,7 +121,7 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 
 		// Execute a token request
 		authenticator.HandleTokenRequest()
-	default:
+	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
 		handler.Respond()
 	}
