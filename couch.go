@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -133,4 +134,16 @@ func (couch *CouchDB) url() string {
 // bulkUrl returns the url for bulk operations on the database
 func (couch *CouchDB) bulkUrl() string {
 	return couch.url() + bulk_option
+}
+
+// DecodeJsonRequest takes any input that matches the io.ReadCloser and unmarshals the contents to an interface
+func DecodeJsonRequest(b io.ReadCloser, container interface{}) error {
+	raw, err := ioutil.ReadAll(b)
+	defer b.Close()
+
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(raw, container)
 }
