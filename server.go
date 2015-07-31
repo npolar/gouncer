@@ -64,8 +64,7 @@ type HandlerDef struct {
 }
 
 func NewServer(cfg *Config) *Server {
-	srv := &Server{}
-	srv.Config = cfg
+	srv := &Server{Config: cfg}
 	srv.Cache = srv.NewCache(srv.Memcache)
 
 	return srv

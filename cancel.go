@@ -11,9 +11,7 @@ type Cancel struct {
 }
 
 func NewCancellation(h *ResponseHandler) *Cancel {
-	return &Cancel{
-		Handler: h,
-	}
+	return &Cancel{Handler: h}
 }
 
 // Registration completes the registration process after the user clicks the confirmation link

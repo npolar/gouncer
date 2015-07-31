@@ -14,10 +14,7 @@ type Authorizer struct {
 
 // NewAuthorizer configures the Authorizer and returns a pointer
 func NewAuthorizer(h *ResponseHandler) *Authorizer {
-	a := &Authorizer{}
-	a.ResponseHandler = h
-
-	return a
+	return &Authorizer{ResponseHandler: h}
 }
 
 // AuthorizeRequest handles authorization checking with the provided system and credentials

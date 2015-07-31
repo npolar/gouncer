@@ -14,10 +14,7 @@ type Authenticator struct {
 }
 
 func NewAuthenticator(h *ResponseHandler) *Authenticator {
-	a := &Authenticator{}
-	a.ResponseHandler = h
-
-	return a
+	return &Authenticator{ResponseHandler: h}
 }
 
 // HandleTokenRequest does a header check. If authorization is present it will call

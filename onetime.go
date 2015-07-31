@@ -13,11 +13,10 @@ type OneTime struct {
 }
 
 func NewOneTimePassword(h *ResponseHandler) *OneTime {
-	o := &OneTime{}
-	o.Credentials = &Credentials{}
-	o.ResponseHandler = h
-
-	return o
+	return &OneTime{
+		Credentials:     &Credentials{},
+		ResponseHandler: h,
+	}
 }
 
 func (o *OneTime) RequestPassword() {

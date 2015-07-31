@@ -11,9 +11,7 @@ type Confirm struct {
 }
 
 func NewConfirm(h *ResponseHandler) *Confirm {
-	return &Confirm{
-		Handler: h,
-	}
+	return &Confirm{Handler: h}
 }
 
 // Registration completes the registration process after the user clicks the confirmation link
