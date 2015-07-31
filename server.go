@@ -123,14 +123,6 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 
 		// Execute a token request
 		authenticator.HandleTokenRequest()
-	case "POST":
-		// Configure the Authenticator
-		authenticator := NewAuthenticator(handler)
-		authenticator.Backend = srv.Backend
-		authenticator.Token = srv.Token
-
-		// Execute a revalidation request
-		authenticator.HandleRevalidationRequest()
 	default:
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
 		handler.Respond()

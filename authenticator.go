@@ -33,41 +33,13 @@ func (auth *Authenticator) HandleTokenRequest() {
 	auth.Respond()
 }
 
-func (auth *Authenticator) HandleRevalidationRequest() {
-	if err := auth.ParseAuthHeader(auth.HttpRequest.Header.Get("Authorization")); err == nil {
-		auth.ProcessRevalidationRequest()
-	} else {
-		auth.NewError(http.StatusUnauthorized, err.Error())
-	}
-
-	auth.Respond()
-}
-
 // ProcessTokenRequest retrieves the requested user and checks if the credentials match. If everything
 // checks out it calls the TokenResponse to generate the actual response
 func (auth *Authenticator) ProcessTokenRequest() {
-	valid, err := auth.ValidBasicAuth()
+	valid, err := auth.ValidCredentials()
 
 	if valid {
 		auth.TokenResponse(auth.UserInfo)
-	}
-
-	if err != nil {
-		auth.NewError(http.StatusUnauthorized, err.Error())
-	}
-}
-
-func (auth *Authenticator) ProcessRevalidationRequest() {
-	var doc = make(map[string]interface{})
-	err := DecodeJsonRequest(auth.HttpRequest.Body, &doc)
-
-	if err == nil {
-		valid, rerr := auth.Revalidate(doc["revalidation_code"].(string))
-		err = rerr
-
-		if valid {
-			auth.TokenResponse(auth.UserInfo)
-		}
 	}
 
 	if err != nil {
@@ -90,8 +62,6 @@ func (auth *Authenticator) TokenResponse(userInfo map[string]interface{}) {
 	token, err := tokenizer.String()
 
 	if err == nil {
-		auth.Response.RevalidationCode = auth.GenerateRevalidationCode()
-
 		// Cache the token info for validation purposes
 		err = auth.CacheTokenInfo()
 
@@ -121,7 +91,7 @@ func (auth *Authenticator) ResolveAlgorithm() *toki.Algorithm {
 
 // CacheTokenInfo caches the username and secret for validation purposes
 func (auth *Authenticator) CacheTokenInfo() error {
-	data, err := json.Marshal(&CacheObj{auth.Secret, auth.Response.RevalidationCode})
+	data, err := json.Marshal(&CacheObj{auth.Secret})
 
 	if err == nil {
 		return auth.CacheCredentials(auth.Username, data, auth.Expiration)

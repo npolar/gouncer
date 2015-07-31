@@ -34,8 +34,7 @@ type Credentials struct {
 }
 
 type CacheObj struct {
-	Secret           string
-	RevalidationCode string
+	Secret string
 }
 
 func (creds *Credentials) ParseAuthHeader(value string) error {
@@ -102,11 +101,6 @@ func (creds *Credentials) DecodeBase64(content string) (string, error) {
 func (creds *Credentials) GenerateSecret() {
 	creds.HashAlg = crypto.SHA1
 	creds.Secret = creds.GenerateHash(creds.PasswordHash() + creds.TimeSalt() + creds.CharSalt(16))
-}
-
-func (creds *Credentials) GenerateRevalidationCode() string {
-	creds.HashAlg = crypto.SHA1
-	return creds.GenerateHash(creds.Username + creds.TimeSalt() + creds.CharSalt(24))
 }
 
 func (creds *Credentials) TimeSalt() string {
@@ -248,53 +242,21 @@ func (creds *Credentials) ValidToken() (bool, error) {
 
 	if err == nil {
 		creds.Username = creds.Jwt.Claim.Content["user"].(string)
-		item, cerr := creds.Cache.Get(creds.Username)
-		err = cerr
+		userInfo, uerr := creds.FetchUser() // load the user info for token generation purposes
+		err = uerr
 
 		if err == nil {
-			err = creds.decodeCache(item.Value)
+			creds.UserInfo = userInfo
+
+			item, cerr := creds.Cache.Get(creds.Username)
+			err = cerr
 
 			if err == nil {
-				return creds.Jwt.Valid(creds.Obj.Secret)
-			}
-		}
-	}
+				err = creds.decodeCache(item.Value)
 
-	return false, err
-}
-
-func (creds *Credentials) Revalidate(code string) (bool, error) {
-	err := creds.parseToken()
-
-	if err == nil {
-		creds.Username = creds.Jwt.Claim.Content["user"].(string)
-
-		item, cerr := creds.Cache.Get(creds.Username)
-		err = cerr
-
-		if err == nil {
-			err = creds.decodeCache(item.Value)
-
-			if err == nil && code == creds.Obj.RevalidationCode {
-				valid, verr := creds.Jwt.Valid(creds.Obj.Secret)
-				err = verr
-
-				if valid {
-					info, cerr := creds.FetchUser()
-					err = cerr
-
-					if err == nil {
-						if info["active"].(bool) {
-							creds.UserInfo = info
-							return valid, err
-						} else {
-							err = errors.New("This account has been disabled. Please contact the administrator for more info.")
-							creds.Cache.Delete(creds.Username) // Delete the current userobj
-						}
-					}
+				if err == nil {
+					return creds.Jwt.Valid(creds.Obj.Secret)
 				}
-			} else {
-				err = errors.New("Revalidation code mismatch")
 			}
 		}
 	}

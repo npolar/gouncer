@@ -17,10 +17,9 @@ type ResponseHandler struct {
 }
 
 type AuthResponse struct {
-	Token            string      `json:"token,omitempty" xml:"Token,omitempty"`
-	RevalidationCode string      `json:"revalidation_code,omitempty" xml:"RevalidationCode,omitempty"`
-	AccessRights     interface{} `json:"rights,omitempty" xml:"Access>Right,omitempty"`
-	Info             *Info       `json:"info,omitempty" xml:",omitempty"`
+	Token        string      `json:"token,omitempty" xml:"Token,omitempty"`
+	AccessRights interface{} `json:"rights,omitempty" xml:"Access>Right,omitempty"`
+	Info         *Info       `json:"info,omitempty" xml:",omitempty"`
 }
 
 type Response struct {
