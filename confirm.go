@@ -35,5 +35,4 @@ func (c *Confirm) Registration() {
 	} else {
 		c.Handler.NewError(http.StatusInternalServerError, err.Error())
 	}
-	c.Handler.Respond()
 }

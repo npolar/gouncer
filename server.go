@@ -123,9 +123,9 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 		authenticator.HandleTokenRequest()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
-		handler.Respond()
 	}
 
+	handler.Respond()
 }
 
 func (srv *Server) OneTimeHandler(w http.ResponseWriter, r *http.Request) {
@@ -139,8 +139,9 @@ func (srv *Server) OneTimeHandler(w http.ResponseWriter, r *http.Request) {
 		onetime.RequestPassword()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
-		handler.Respond()
 	}
+
+	handler.Respond()
 }
 
 // AuthorizationHandler checks the http method and delegates the request to the authorizer
@@ -156,9 +157,9 @@ func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) 
 		authorizer.AuthorizeRequest()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
-		handler.Respond()
 	}
 
+	handler.Respond()
 }
 
 // RegistrationHandler receives a regestration request and initiates the registration process
@@ -173,8 +174,9 @@ func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		registration.Submit()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
-		handler.Respond()
 	}
+
+	handler.Respond()
 }
 
 // UnregHandler allows a user to unregister by sending a delete request with valid auth information
@@ -189,8 +191,9 @@ func (srv *Server) UnRegHandler(w http.ResponseWriter, r *http.Request) {
 		registration.Cancel()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [DELETE]")
-		handler.Respond()
 	}
+
+	handler.Respond()
 }
 
 func (srv *Server) CancelationHandler(w http.ResponseWriter, r *http.Request) {
@@ -201,8 +204,9 @@ func (srv *Server) CancelationHandler(w http.ResponseWriter, r *http.Request) {
 		cancellation.Confirm()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
-		handler.Respond()
 	}
+
+	handler.Respond()
 }
 
 // ConfirmationHandler receives a confirmation request and initiates the confirmation sequence
@@ -214,8 +218,9 @@ func (srv *Server) ConfirmationHandler(w http.ResponseWriter, r *http.Request) {
 		confirm.Registration()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [GET]")
-		handler.Respond()
 	}
+
+	handler.Respond()
 }
 
 // NewCache starts a new memcache client for the provided servers

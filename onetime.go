@@ -48,6 +48,4 @@ func (o *OneTime) RequestPassword() {
 	if err != nil {
 		o.NewError(http.StatusInternalServerError, err.Error())
 	}
-
-	o.Respond()
 }

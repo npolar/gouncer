@@ -44,8 +44,6 @@ func (r *Register) Submit() {
 	} else {
 		r.NewError(http.StatusNotAcceptable, err.Error())
 	}
-
-	r.Respond()
 }
 
 // Cancel triggers the account cancellation sequence
@@ -55,8 +53,6 @@ func (r *Register) Cancel() {
 	} else {
 		r.NewError(http.StatusUnauthorized, "")
 	}
-
-	r.Respond()
 }
 
 func (r *Register) processRegistration() {

@@ -36,5 +36,4 @@ func (c *Cancel) Confirm() {
 	} else {
 		c.Handler.NewError(http.StatusInternalServerError, err.Error())
 	}
-	c.Handler.Respond()
 }

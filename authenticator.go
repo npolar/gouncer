@@ -26,8 +26,6 @@ func (auth *Authenticator) HandleTokenRequest() {
 	} else {
 		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
-
-	auth.Respond()
 }
 
 // ProcessTokenRequest retrieves the requested user and checks if the credentials match. If everything
