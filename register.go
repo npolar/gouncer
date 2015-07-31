@@ -82,7 +82,7 @@ func (r *Register) processRegistration() {
 			r.NewError(http.StatusInternalServerError, err.Error())
 		}
 	} else {
-		r.NewError(http.StatusConflict, "This uers already exists.")
+		r.NewError(http.StatusConflict, "This user already exists.")
 	}
 }
 
