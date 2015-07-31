@@ -30,8 +30,6 @@ func (auth *Authorizer) AuthorizeRequest() {
 	if err != nil {
 		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
-
-	auth.Respond()
 }
 
 // ValidateRequest checks if the caller has any access rights on the system
