@@ -127,10 +127,7 @@ func (auth *Authorizer) SystemAccessible(system string, accessList []interface{}
 		sysUrl, _ := url.Parse(accessItem.(map[string]interface{})["uri"].(string))
 		reqUrl, _ := url.Parse(system)
 		if sysUrl.Host == reqUrl.Host {
-			if auth.ExactPathMatch(sysUrl.Path, reqUrl.Path) {
-				match = true
-				r = accessItem.(map[string]interface{})["rights"]
-			} else if r == nil && auth.WildcardPathMatch(sysUrl.Path, reqUrl.Path) {
+			if auth.ExactPathMatch(sysUrl.Path, reqUrl.Path) || auth.WildcardPathMatch(sysUrl.Path, reqUrl.Path) {
 				match = true
 				r = accessItem.(map[string]interface{})["rights"]
 			}
