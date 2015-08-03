@@ -23,8 +23,10 @@ func (auth *Authorizer) AuthorizeRequest() {
 
 	if err == nil {
 		var req = make(map[string]interface{})
-		err = DecodeJsonRequest(auth.HttpRequest.Body, &req)
-		auth.ValidateRequest(req)
+
+		if err = DecodeJsonRequest(auth.HttpRequest.Body, &req); err == nil {
+			auth.ValidateRequest(req)
+		}
 	}
 
 	if err != nil {
@@ -47,12 +49,7 @@ func (auth *Authorizer) ValidateRequest(req map[string]interface{}) {
 
 // AutorizedUser checks if the user has any access rights for the system
 func (auth *Authorizer) AuthorizedUser(system string) {
-	var err error
-
-	valid, cerr := auth.ValidBasicAuth()
-	err = cerr
-
-	if valid {
+	if valid, err := auth.ValidBasicAuth(); valid {
 		var accessList []interface{}
 
 		if groups, exists := auth.UserInfo["groups"].([]interface{}); exists {
@@ -64,31 +61,22 @@ func (auth *Authorizer) AuthorizedUser(system string) {
 		}
 
 		auth.SystemAccessible(system, accessList)
-	}
-
-	if err != nil {
+	} else {
 		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 }
 
 // AuthorizedToken checks if the token has access rights for the system
 func (auth *Authorizer) AuthorizedToken(system string) {
-	var err error
-
-	valid, cerr := auth.ValidToken()
-	err = cerr
-
-	if valid {
+	if valid, err := auth.ValidToken(); valid {
 		var accessList []interface{}
 
-		if auth.Jwt.Claim.Content["systems"] != nil {
-			accessList = auth.Jwt.Claim.Content["systems"].([]interface{})
+		if sys, exists := auth.Jwt.Claim.Content["systems"]; exists {
+			accessList = sys.([]interface{})
 		}
 
 		auth.SystemAccessible(system, accessList)
-	}
-
-	if err != nil {
+	} else {
 		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 }

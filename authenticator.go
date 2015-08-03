@@ -31,13 +31,9 @@ func (auth *Authenticator) HandleTokenRequest() {
 // ProcessTokenRequest retrieves the requested user and checks if the credentials match. If everything
 // checks out it calls the TokenResponse to generate the actual response
 func (auth *Authenticator) ProcessTokenRequest() {
-	valid, err := auth.ValidCredentials()
-
-	if valid {
+	if valid, err := auth.ValidCredentials(); valid {
 		auth.TokenResponse(auth.UserInfo)
-	}
-
-	if err != nil {
+	} else {
 		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 }
