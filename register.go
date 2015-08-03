@@ -89,11 +89,10 @@ func (r *Register) processRegistration() {
 func (r *Register) processCancellation() {
 	var err error
 
-	valid, cerr := r.ValidCredentials()
-	err = cerr
-
-	if valid {
+	if valid, cerr := r.ValidCredentials(); valid {
 		err = r.cancelAccount()
+	} else {
+		err = cerr
 	}
 
 	if err != nil {
@@ -107,9 +106,7 @@ func (r *Register) cancelAccount() error {
 	r.Credentials.HashAlg = crypto.SHA1
 	id := r.Credentials.GenerateHash(r.Username + r.TimeSalt() + r.CharSalt(32))
 
-	err = r.CacheCredentials(id, []byte(r.Username), r.LinkTimeout)
-
-	if err == nil {
+	if err = r.CacheCredentials(id, []byte(r.Username), r.LinkTimeout); err == nil {
 		mail := NewMailClient(r.Username, id)
 		mail.MailConfig = r.MailConfig
 		mail.Backend = r.Backend

@@ -21,14 +21,13 @@ func NewOneTimePassword(h *ResponseHandler) *OneTime {
 
 func (o *OneTime) RequestPassword() {
 	var info RegistrationInfo
-	err := DecodeJsonRequest(o.HttpRequest.Body, &info)
+	var err error
 
-	if err == nil {
-		pwd, perr := o.generateOneTimePassword(info.Email)
-		err = perr
-
-		if err == nil {
+	if err = DecodeJsonRequest(o.HttpRequest.Body, &info); err == nil {
+		if pwd, perr := o.generateOneTimePassword(info.Email); perr == nil {
 			err = o.mailPassword(pwd)
+		} else {
+			err = perr
 		}
 	}
 
