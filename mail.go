@@ -27,6 +27,8 @@ type MailConfig struct {
 	ConfirmMessage string // Confirmation mail content body
 	CancelSubject  string // Cancellation mail subject field
 	CancelMessage  string // Cancellation mail content body
+	OneTimeSubject string // OneTime login mail subject
+	OneTimeMessage string // OneTime login mail content body
 }
 
 func NewMailClient(recipient string, linkID string) *Mail {
@@ -75,9 +77,15 @@ func (m *Mail) Cancellation() error {
 
 func (m *Mail) OneTimePassword(pwd string) error {
 	var message string
+	rxp := regexp.MustCompile(linkPattern)
 
-	message = "Subject:One time password\n\n"
-	message += "You can use your email and the follwing password to login: " + pwd
+	if m.ConfirmMessage != "" {
+		message = "Subject:" + m.OneTimeSubject + "\n\n"
+		message += rxp.ReplaceAllString(m.OneTimeMessage, pwd)
+	} else {
+		message = "Subject:One time password\n\n"
+		message += "You can use your email and the follwing password to login: " + pwd
+	}
 
 	return m.SendMail(message)
 }
