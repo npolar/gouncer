@@ -36,11 +36,11 @@ func (auth *Authorizer) AuthorizeRequest() {
 
 // ValidateRequest checks if the caller has any access rights on the system
 func (auth *Authorizer) ValidateRequest(req map[string]interface{}) {
-	if system, exists := req["system"]; exists {
+	if system, exists := req["system"].(string); exists {
 		if auth.Token == "" && auth.Password != "" {
-			auth.AuthorizedUser(system.(string))
+			auth.AuthorizedUser(system)
 		} else {
-			auth.AuthorizedToken(system.(string))
+			auth.AuthorizedToken(system)
 		}
 	} else {
 		auth.NewError(http.StatusUnauthorized, "No system info provided")
