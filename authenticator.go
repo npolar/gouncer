@@ -58,6 +58,7 @@ func (auth *Authenticator) TokenResponse(userInfo map[string]interface{}) {
 
 		// When token info is cached respond with the token
 		if err == nil {
+			auth.Response.Status = http.StatusOK
 			auth.Response.Token = token
 		}
 	}

@@ -120,6 +120,7 @@ func (auth *Authorizer) SystemAccessible(system string, accessList []interface{}
 	}
 
 	if match {
+		auth.Response.Status = http.StatusOK
 		auth.Response.AccessRights = r
 	} else {
 		auth.NewError(http.StatusUnauthorized, "You do not have access to this system")
