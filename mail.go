@@ -45,12 +45,12 @@ func (m *Mail) Confirmation() error {
 
 	if m.ConfirmMessage != "" {
 		message = "Subject:" + m.ConfirmSubject + "\n\n"
-		message += rxp.ReplaceAllString(m.ConfirmMessage, m.GenerateConfirmationLink())
+		message += rxp.ReplaceAllString(m.ConfirmMessage, m.LinkID)
 	} else {
 		message = "Subject:Account Registration\n\n"
 		message += "Thank you for registering.\n\n"
 		message += "To complete your registration please click the following link: "
-		message += m.GenerateConfirmationLink() + "\n"
+		message += m.LinkID + "\n"
 		message += "Please delete this message if you did not try to register an account with us."
 	}
 
@@ -64,11 +64,11 @@ func (m *Mail) Cancellation() error {
 
 	if m.ConfirmMessage != "" {
 		message = "Subject:" + m.CancelSubject + "\n\n"
-		message += rxp.ReplaceAllString(m.CancelMessage, m.GenerateCancellationLink())
+		message += rxp.ReplaceAllString(m.CancelMessage, m.LinkID)
 	} else {
 		message = "Subject:Account Cancellation\n\n"
 		message += "Click the following link to complete the cancellation process: "
-		message += m.GenerateCancellationLink() + "\n"
+		message += m.LinkID + "\n"
 		message += "Please delete this message if you do not wish to cancel your account."
 	}
 

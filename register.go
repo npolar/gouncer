@@ -73,7 +73,7 @@ func (r *Register) processRegistration() {
 				err = mail.Confirmation()
 
 				if err == nil {
-					r.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". To complete the registration click the link inside.")
+					r.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". Use the code inside to complete the registration.")
 				}
 			}
 		}
@@ -112,7 +112,7 @@ func (r *Register) cancelAccount() error {
 		mail.Backend = r.Backend
 		mail.Core = r.Core
 		if mErr := mail.Cancellation(); mErr == nil {
-			r.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.Username+". To complete the cancellation click the link inside.")
+			r.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.Username+". Use the code inside to complete the cancellation.")
 		} else {
 			err = mErr
 		}
