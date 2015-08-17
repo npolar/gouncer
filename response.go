@@ -103,8 +103,8 @@ func (h *ResponseHandler) RespondText() {
 func (h *ResponseHandler) RespondJson() {
 	var body []byte
 
-	h.Writer.WriteHeader(h.Response.Status)
 	h.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+	h.Writer.WriteHeader(h.Response.Status)
 	body, _ = json.Marshal(h.Response)
 
 	if callback := h.HttpRequest.FormValue("callback"); callback != "" && h.JsonP {
@@ -117,8 +117,8 @@ func (h *ResponseHandler) RespondJson() {
 func (h *ResponseHandler) RespondXml() {
 	var body []byte
 
-	h.Writer.WriteHeader(h.Response.Status)
 	h.Writer.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	h.Writer.WriteHeader(h.Response.Status)
 	body, _ = xml.MarshalIndent(h.Response, "", "  ")
 
 	h.Writer.Write(body)
