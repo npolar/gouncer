@@ -160,7 +160,7 @@ To create a new account you can send a request to the /register path. **NOTE**: 
 ```
 
 If successfull you will get a mail at the email address you tried to register. Use the code inside to complete account creation. If an account for the mail address already exist you will get an error.
-To complete the registration run the following command. For <code> insert the value received in the email.
+To complete the registration run the following command. Replace the code part of the uri with the value received in the email.
 ```shell
   curl -k -XGET https://localhost:8950/confirm/<code>
 ```
@@ -174,7 +174,7 @@ To cancel your account you can send a request to the /unregister path with valid
 ```
 
 If you sent the request with valid credentials you'll receive an email on the accounts email address with a code to complete the cancellation process.
-To complete cancallation run the following command. For <code> inser the value received in the email.
+To complete cancallation run the following command. Replace the code part of the uri with the value received in the email.
 
 ```shell
   curl -k -XGET https://localhost:8950/cancel/<code>
