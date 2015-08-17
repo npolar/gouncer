@@ -108,11 +108,11 @@ func (m *Mail) ResolveHost() string {
 		host = m.Hostname
 	} else {
 		if ip, err := m.localIP(); err == nil {
-			host = ip.String()
+			host = ip.String() + m.Port
 		}
 	}
 
-	return host + m.Port
+	return host
 }
 
 // Generate an SMTP request with the provided message
