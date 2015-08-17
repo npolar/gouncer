@@ -21,8 +21,9 @@ A high speed auth server written in go
 - **Staticlly linked**
 
 ```shell
-  go install && go build -a -tags netgo -installsuffix netgo main/gouncer.go
+  go install && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-s' main/gouncer.go
 ```
+**NOTE!**:change the GOOS= variable to match your platform
 
 - **Dynamically linked**
 
@@ -102,32 +103,30 @@ Gouncer supports configuration through a [TOML v0.4.0](https://github.com/toml-l
 - **Basic**
 
 ```shell
-  curl -XGET https://username:password@localhost:8950/authenticate
+  curl -k -XGET https://username:password@localhost:8950/authenticate
   # OR
-  curl -XGET https://localhost:8950/authenticate -H "Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ="
+  curl -k -XGET https://localhost:8950/authenticate -H "Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ="
 ```
 
 Gouncer will then respond with a json object
 
 ```json
   {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ",
-    "revalidation_code": "6078140b5c00dcc9c98cbc7e47df65d73a587ed1"
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ"
   }
 ```
 
-- **Token + Revalidation**
+- **Revalidation**
 
 ```shell
-  curl -XPOST https://localhost:8950/authenticate -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ" -d '{"revalidation_code": "6078140b5c00dcc9c98cbc7e47df65d73a587ed1"}'
+  curl -k -XGET https://localhost:8950/authenticate -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ"
 ```
 
-Gouncer will then respond with a new token and revalidation code
+Gouncer will then respond with a new token
 
 ```json
   {
     "token": "eyJhbG...",
-    "revalidation_code": "7799..."
   }
 ```
 
@@ -157,20 +156,33 @@ Gouncer will respond with a list of access rights or with an http 401 error.
 To create a new account you can send a request to the /register path. **NOTE**: an smtp address must be register for this feature to work.
 
 ```shell
-  curl -XPOST https://localhost:8950/register -d '{"email":"my-mail@example.com", "name":"myname", "password":"some-secret"}'
+  curl -k -XPOST https://localhost:8950/register -d '{"email":"my-mail@example.com", "name":"myname", "password":"some-secret"}'
 ```
 
-If successfull you will get a mail at the email address you tried to register. click the link inside to complet account creation. If an account for the mail address already exist you will get an error.
+If successfull you will get a mail at the email address you tried to register. Use the code inside to complete account creation. If an account for the mail address already exist you will get an error.
+To complete the registration run the following command. For <code> insert the value received in the email.
+```shell
+  curl -k -XGET https://localhost:8950/confirm/<code>
+```
 
 #### Account Cancellation
 
 To cancel your account you can send a request to the /unregister path with valid credentials (basic || token)
 
 ```shell
-  curl -XDELETE https://localhost:8950/unregister
+  curl -k -XDELETE https://localhost:8950/unregister
 ```
 
-If you sent the request with valid credentials you'll receive an email on the accounts email address with a link to complete the cancellation process
+If you sent the request with valid credentials you'll receive an email on the accounts email address with a code to complete the cancellation process.
+To complete cancallation run the following command. For <code> inser the value received in the email.
+
+```shell
+  curl -k -XGET https://localhost:8950/cancel/<code>
+```
+
+## Example Notice
+
+Note that the curl commands in the provided examples ignore self signed SSL certificates. To check certificate validity remove the **-k** flag from the commands.
 
 ## Notice
 
