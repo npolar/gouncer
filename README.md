@@ -180,15 +180,15 @@ To complete cancallation run the following command. Replace the code part of the
   curl -k -XGET https://localhost:8950/cancel/<code>
 ```
 
-#### Onetime Login (Email)
+#### One time Login (Email)
 
-In order to provide users with the ability to reset forgotten passwords they can obtain a onetime password through the email address they used to register themselves.
+In order to provide users with the ability to reset forgotten passwords they can obtain a one time password through the email address they used to register themselves.
 
 ```shell
   curl -k -XPOST https://localhost:8950/onetime -d '{"email": "user@email.com"}'
 ```
 
-After sending the request the user will receive an email address (Only if the user exists in the system!) The code recieved can then be used as the password for a basic auth login session
+After sending the request the user will receive an email (Only if the user exists in the system!) with a onetime code. This code can be used as a password for a basic auth login session.
 
 ```shell
   curl -K -XGET https://user%40email.com:<code>@localhost:8950/authenticate
