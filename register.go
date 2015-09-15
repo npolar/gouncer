@@ -28,6 +28,7 @@ type RegistrationInfo struct {
 	Email    string   `json:"email,omitempty"`
 	Name     string   `json:"name,omitempty"`
 	Password string   `json:"password,omitempty"`
+	Salt     string   `json:"salt,omitempty"`
 	Active   bool     `json:"active,omitempty"`
 	Groups   []string `json:"groups,omitempty"`
 	Hash     string   `json:"hash,omitempty"`
@@ -135,6 +136,7 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 
 	r.Credentials.HashAlg = crypto.SHA512
 	r.Credentials.Password = r.RegistrationInfo.Password
+	r.Credentials.Salt = r.Credentials.CharSalt(64)
 	passhash := r.Credentials.PasswordHash()
 
 	// Hash the email address and use it as a key
@@ -143,6 +145,7 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 
 	r.RegistrationInfo.Id = r.RegistrationInfo.Email
 	r.RegistrationInfo.Password = passhash
+	r.RegistrationInfo.Salt = r.Credentials.Salt
 	r.RegistrationInfo.Active = true
 	r.RegistrationInfo.Groups = r.defaultGroups()
 	r.RegistrationInfo.Hash = "sha512"

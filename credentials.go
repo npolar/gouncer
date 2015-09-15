@@ -24,6 +24,7 @@ const (
 type Credentials struct {
 	Username string
 	Password string
+	Salt     string
 	Token    string
 	Obj      *CacheObj
 	HashAlg  crypto.Hash
@@ -100,14 +101,14 @@ func (creds *Credentials) DecodeBase64(content string) (string, error) {
 // to generate a random secret used to sign the token with.
 func (creds *Credentials) GenerateSecret() {
 	creds.HashAlg = crypto.SHA1
-	creds.Secret = creds.GenerateHash(creds.PasswordHash() + creds.TimeSalt() + creds.CharSalt(16))
+	creds.Secret = creds.GenerateHash(creds.PasswordHash() + creds.TimeSalt() + creds.CharSalt(64))
 }
 
 func (creds *Credentials) TimeSalt() string {
 	rand.Seed(time.Now().UTC().UnixNano())
 	offset := rand.Intn(100000)
 
-	return time.Now().UTC().Add(time.Minute * time.Duration(offset)).Format(time.RFC3339)
+	return time.Now().UTC().Add(time.Minute * time.Duration(offset)).Format(time.RFC3339Nano)
 }
 
 // CharSalt generates a random character string with the size specified in the argument
@@ -125,7 +126,7 @@ func (creds *Credentials) CharSalt(size int) string {
 
 // PasswordHash returns the hashed password.
 func (creds *Credentials) PasswordHash() string {
-	return creds.GenerateHash(creds.Password)
+	return creds.GenerateHash(creds.Password + creds.Salt)
 }
 
 func (creds *Credentials) ValidatePasswordHash(pwdHash string) (bool, error) {
@@ -210,6 +211,7 @@ func (creds *Credentials) ValidBasicAuth() (bool, error) {
 
 		if userInfo["active"].(bool) == true {
 			creds.ResolveHashAlg(userInfo["hash"].(string))
+			creds.Salt = userInfo["salt"].(string)
 
 			valid, perr := creds.ValidatePasswordHash(userInfo["password"].(string))
 			err = perr
