@@ -61,6 +61,8 @@ func ResolveStatus(status int) string {
 		return "Created"
 	case http.StatusUnauthorized:
 		return "Unauthorized"
+	case http.StatusForbidden:
+		return "Forbidden"
 	case http.StatusBadRequest:
 		return "Bad Request"
 	case http.StatusInternalServerError:

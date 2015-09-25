@@ -62,7 +62,7 @@ func (auth *Authorizer) AuthorizedUser(system string) {
 
 		auth.SystemAccessible(system, accessList)
 	} else {
-		auth.NewError(http.StatusUnauthorized, err.Error())
+		auth.NewError(http.StatusForbidden, err.Error())
 	}
 }
 
@@ -77,7 +77,7 @@ func (auth *Authorizer) AuthorizedToken(system string) {
 
 		auth.SystemAccessible(system, accessList)
 	} else {
-		auth.NewError(http.StatusUnauthorized, err.Error())
+		auth.NewError(http.StatusForbidden, err.Error())
 	}
 }
 
@@ -123,7 +123,7 @@ func (auth *Authorizer) SystemAccessible(system string, accessList []interface{}
 		auth.Response.Status = http.StatusOK
 		auth.Response.AccessRights = r
 	} else {
-		auth.NewError(http.StatusUnauthorized, "You do not have access to this system")
+		auth.NewError(http.StatusForbidden, "You do not have access to this system")
 	}
 }
 
