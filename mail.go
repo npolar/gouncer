@@ -3,7 +3,6 @@ package gouncer
 import (
 	"errors"
 	"fmt"
-	"net"
 	"net/smtp"
 	"net/url"
 	"regexp"
@@ -78,7 +77,7 @@ func (m *Mail) Cancellation() error {
 	} else {
 		message = "Subject:Account Cancellation\n\n"
 		message += "Click the following link to complete the cancellation process: "
-		message += link + "/" + m.LinkID + "\n"
+		message += m.LinkID + "\n"
 		message += "Please delete this message if you do not wish to cancel your account."
 	}
 
@@ -98,31 +97,6 @@ func (m *Mail) OneTimePassword(pwd string) error {
 	}
 
 	return m.SendMail(message)
-}
-
-func (m *Mail) GenerateConfirmationLink() string {
-	return "https://" + m.ResolveHost() + "/confirm/" + m.LinkID
-}
-
-func (m *Mail) GenerateCancellationLink() string {
-	return "https://" + m.ResolveHost() + "/cancel/" + m.LinkID
-}
-
-// ResolveHost tries to resolve the link host
-func (m *Mail) ResolveHost() string {
-	// Set host to localhost as default
-	host := "localhost"
-
-	// Use the provided hostname if present else try to resolve the localIP
-	if m.Hostname != "" {
-		host = m.Hostname
-	} else {
-		if ip, err := m.localIP(); err == nil {
-			host = ip.String() + m.Port
-		}
-	}
-
-	return host
 }
 
 // Generate an SMTP request with the provided message
