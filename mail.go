@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net"
 	"net/smtp"
+	"net/url"
 	"regexp"
+	"strings"
 )
 
 const (
 	linkPattern = "{{link}}"
+	codePattern = "{{code}}"
 )
 
 type Mail struct {
@@ -21,14 +24,15 @@ type Mail struct {
 }
 
 type MailConfig struct {
-	Sender         string // Email address the messages are sent from
-	LinkTimeout    int32  // Time confirmation and cancellation links stay active
-	ConfirmSubject string // Confirmation mail subject field
-	ConfirmMessage string // Confirmation mail content body
-	CancelSubject  string // Cancellation mail subject field
-	CancelMessage  string // Cancellation mail content body
-	OneTimeSubject string // OneTime login mail subject
-	OneTimeMessage string // OneTime login mail content body
+	Sender           string   // Email address the messages are sent from
+	LinkTimeout      int32    // Time confirmation and cancellation links stay active
+	ConfirmSubject   string   // Confirmation mail subject field
+	ConfirmMessage   string   // Confirmation mail content body
+	CancelSubject    string   // Cancellation mail subject field
+	CancelMessage    string   // Cancellation mail content body
+	OneTimeSubject   string   // OneTime login mail subject
+	OneTimeMessage   string   // OneTime login mail content body
+	WhitelistDomains []string // Whitelisted domains that are allowed to handle confirmation and cancellation messages
 }
 
 func NewMailClient(recipient string, linkID string) *Mail {
@@ -38,23 +42,29 @@ func NewMailClient(recipient string, linkID string) *Mail {
 	}
 }
 
-func (m *Mail) Confirmation() error {
-	var message string
+func (m *Mail) Confirmation(link string) error {
+	if m.allowedDomain(link) {
 
-	rxp := regexp.MustCompile(linkPattern)
+		var message string
 
-	if m.ConfirmMessage != "" {
-		message = "Subject:" + m.ConfirmSubject + "\n\n"
-		message += rxp.ReplaceAllString(m.ConfirmMessage, m.LinkID)
+		rxp := regexp.MustCompile(linkPattern)
+		rxp2 := regexp.MustCompile(codePattern)
+
+		if m.ConfirmMessage != "" {
+			message = "Subject:" + m.ConfirmSubject + "\n\n"
+			message += rxp2.ReplaceAllString(rxp.ReplaceAllString(m.ConfirmMessage, link), m.LinkID)
+		} else {
+			message = "Subject:Account Registration\n\n"
+			message += "Thank you for registering.\n\n"
+			message += "To complete your registration please click the following link: "
+			message += link + "/" + m.LinkID + "\n"
+			message += "Please delete this message if you did not try to register an account with us."
+		}
+
+		return m.SendMail(message)
 	} else {
-		message = "Subject:Account Registration\n\n"
-		message += "Thank you for registering.\n\n"
-		message += "To complete your registration please click the following link: "
-		message += m.LinkID + "\n"
-		message += "Please delete this message if you did not try to register an account with us."
+		return errors.New("Confirmation link does not appear on the whitelist")
 	}
-
-	return m.SendMail(message)
 }
 
 func (m *Mail) Cancellation() error {
@@ -64,11 +74,11 @@ func (m *Mail) Cancellation() error {
 
 	if m.ConfirmMessage != "" {
 		message = "Subject:" + m.CancelSubject + "\n\n"
-		message += rxp.ReplaceAllString(m.CancelMessage, m.LinkID)
+		rxp.ReplaceAllString(m.ConfirmMessage, m.LinkID)
 	} else {
 		message = "Subject:Account Cancellation\n\n"
 		message += "Click the following link to complete the cancellation process: "
-		message += m.LinkID + "\n"
+		message += link + "/" + m.LinkID + "\n"
 		message += "Please delete this message if you do not wish to cancel your account."
 	}
 
@@ -156,28 +166,39 @@ func (m *Mail) SendMail(message string) error {
 	return nil
 }
 
-// localIP tries to resolve the local IP of the server
-func (m *Mail) localIP() (net.IP, error) {
-	tt, err := net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-	for _, t := range tt {
-		aa, err := t.Addrs()
-		if err != nil {
-			return nil, err
-		}
-		for _, a := range aa {
-			ipnet, ok := a.(*net.IPNet)
-			if !ok {
-				continue
+func (m *Mail) allowedDomain(link string) bool {
+	if l, err := url.Parse(link); err == nil {
+		for _, white := range m.WhitelistDomains {
+			if a, err := url.Parse(white); err == nil {
+				if m.linksMatch(l, a) {
+					return true
+				}
 			}
-			v4 := ipnet.IP.To4()
-			if v4 == nil || v4[0] == 127 { // loopback address
-				continue
-			}
-			return v4, nil
 		}
 	}
-	return nil, errors.New("cannot find local IP address")
+
+	return false
+}
+
+func (m *Mail) linksMatch(a *url.URL, b *url.URL) bool {
+	return a.Scheme == b.Scheme && a.Host == b.Host && m.pathMatch(a.Path, b.Path)
+}
+
+func (m *Mail) pathMatch(a string, b string) bool {
+	return a == b || m.WildcardPathMatch(b, a)
+}
+
+func (m *Mail) WildcardPathMatch(pathA string, pathB string) bool {
+	segsA := strings.Split(pathA, "/")
+	segsB := strings.Split(pathB, "/")
+
+	match := true
+
+	for i, seg := range segsA {
+		if segsB[i] != seg && seg != "*" {
+			match = false
+		}
+	}
+
+	return match
 }
