@@ -97,7 +97,7 @@ func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string
 	var content = make(map[string]interface{})
 	var systems []interface{}
 
-	content["user"] = auth.Username
+	content["email"] = auth.Username
 
 	if name, exists := userData["name"]; exists {
 		content["name"] = name

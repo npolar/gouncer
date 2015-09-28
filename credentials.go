@@ -243,7 +243,7 @@ func (creds *Credentials) ValidToken() (bool, error) {
 	err := creds.parseToken()
 
 	if err == nil {
-		creds.Username = creds.Jwt.Claim.Content["user"].(string)
+		creds.Username = creds.Jwt.Claim.Content["email"].(string)
 		userInfo, uerr := creds.FetchUser() // load the user info for token generation purposes
 		err = uerr
 
