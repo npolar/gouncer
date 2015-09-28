@@ -66,6 +66,7 @@ func (m *Mail) Confirmation(link string) error {
 	}
 }
 
+// @TODO add link injection for cancellation messages
 func (m *Mail) Cancellation() error {
 	var message string
 
