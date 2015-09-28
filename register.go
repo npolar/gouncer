@@ -14,7 +14,8 @@ type Register struct {
 	Credentials
 	*ResponseHandler
 	RegistrationInfo
-	Groups map[string]Registration
+	Groups  map[string]Registration
+	RegLink string
 }
 
 // Registration groups
@@ -28,6 +29,7 @@ type RegistrationInfo struct {
 	Email    string   `json:"email,omitempty"`
 	Name     string   `json:"name,omitempty"`
 	Password string   `json:"password,omitempty"`
+	Link     string   `json:"link,omitempty"`
 	Salt     string   `json:"salt,omitempty"`
 	Active   bool     `json:"active,omitempty"`
 	Groups   []string `json:"groups,omitempty"`
@@ -62,6 +64,7 @@ func (r *Register) processRegistration() {
 
 	if err != nil {
 		if err.Error() == "404 Object Not Found" {
+			r.RegLink = r.RegistrationInfo.Link
 			id, rerr := r.cacheRegistrationRequest()
 			err = rerr
 
@@ -71,8 +74,7 @@ func (r *Register) processRegistration() {
 				mail.Backend = r.Backend
 				mail.Core = r.Core
 
-				err = mail.Confirmation()
-
+				err = mail.Confirmation(r.RegLink)
 				if err == nil {
 					r.NewResponse(http.StatusOK, "In a few moments you will receive a confirmation email at: "+r.RegistrationInfo.Email+". Use the code inside to complete the registration.")
 				}
@@ -149,6 +151,7 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 	r.RegistrationInfo.Active = true
 	r.RegistrationInfo.Groups = r.defaultGroups()
 	r.RegistrationInfo.Hash = "sha512"
+	r.RegistrationInfo.Link = "" // set a blank link string since we don't want this in the db
 
 	userDoc, _ := json.Marshal(r.RegistrationInfo)
 
