@@ -139,7 +139,7 @@ To check if we have access to https://example.com/info we send our token in the 
   curl -XPOST https://localhost:8950/authorize -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RM" -d '{"system": "https://example.com/info"}'
 ```
 
-Gouncer will respond with a list of access rights or with an http 401 error.
+Gouncer will respond with a list of access rights.
 
 ```json
   {
@@ -151,6 +151,8 @@ Gouncer will respond with a list of access rights or with an http 401 error.
     ]
   }
 ```
+
+If your user does not have access to the system you are trying to access you will get a HTTP 403 Forbidden error.
 
 #### Account Registration
 
