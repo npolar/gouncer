@@ -93,6 +93,7 @@ Gouncer supports configuration through a [TOML v0.4.0](https://github.com/toml-l
   confirmation_message = "Thanks dude! Click for awesomeness: {{link}}"           # Confirmation mail message. Use the {{link}} pattern to inject the link into the message
   cancel_subject       = "Cancellation confirmation"                              # Cancellation mail subject
   cancel_message       = "Bummer dude! Click to cancel the awesomeness: {{link}}" # Cancellation mail message. Use the {{link}} pattern to inject the link into the message
+  whitelist_domains    = ["https://example.com/*"]                                # List of domains that are valid for registration handling
 
 ```
 
