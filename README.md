@@ -153,10 +153,10 @@ Gouncer will respond with a list of access rights or with an http 401 error.
 
 #### Account Registration
 
-To create a new account you can send a request to the /register path. **NOTE**: an smtp address must be register for this feature to work.
+To create a new account you can send a request to the /register path. **NOTE**: an smtp address must be set for this feature to work.
 
 ```shell
-  curl -k -XPOST https://localhost:8950/register -d '{"email":"my-mail@example.com", "name":"myname", "password":"some-secret"}'
+  curl -k -XPOST https://localhost:8950/register -d '{"email":"my-mail@example.com", "name":"myname", "password":"some-secret", "link":"https://my-accept-link/confirm"}'
 ```
 
 If successfull you will get a mail at the email address you tried to register. Use the code inside to complete account creation. If an account for the mail address already exist you will get an error.
