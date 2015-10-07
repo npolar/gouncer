@@ -152,7 +152,7 @@ Gouncer will respond with a list of access rights.
   }
 ```
 
-If your user does not have access to the system you are trying to access you will get a HTTP 403 Forbidden error.
+If your user does not have access to the system you will get a HTTP 403 Forbidden error.
 
 #### Account Registration
 
