@@ -87,13 +87,13 @@ Gouncer supports configuration through a [TOML v0.4.0](https://github.com/toml-l
     groups = ["globalGroup"]
 
   [mail_config]
-  sender               = "noreply@example.com"                                    # Email address to use when sending notifications
-  link_timeout         = 1200                                                     # Time a confirmation link will stay active
-  confirmation_subject = "Account confirmation"                                   # Confirmation mail subject
-  confirmation_message = "Thanks dude! Click for awesomeness: {{link}}"           # Confirmation mail message. Use the {{link}} pattern to inject the link into the message
-  cancel_subject       = "Cancellation confirmation"                              # Cancellation mail subject
-  cancel_message       = "Bummer dude! Click to cancel the awesomeness: {{link}}" # Cancellation mail message. Use the {{link}} pattern to inject the link into the message
-  whitelist_domains    = ["https://example.com/*"]                                # List of domains that are valid for registration handling
+  sender               = "noreply@example.com"                                             # Email address to use when sending notifications
+  link_timeout         = 1200                                                              # Time a confirmation link will stay active
+  confirmation_subject = "Account confirmation"                                            # Confirmation mail subject
+  confirmation_message = "Thanks dude! Click for awesomeness: {{link}}/{{code}}"           # Confirmation mail message. Use the {{link}} pattern to inject the link into the message
+  cancel_subject       = "Cancellation confirmation"                                       # Cancellation mail subject
+  cancel_message       = "Bummer dude! Click to cancel the awesomeness: {{link}}/{{code}}" # Cancellation mail message. Use the {{link}} pattern to inject the link into the message
+  whitelist_domains    = ["https://example.com/*"]                                         # List of domains that are valid for registration handling
 
 ```
 
