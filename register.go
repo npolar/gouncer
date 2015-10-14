@@ -59,6 +59,23 @@ func (r *Register) Cancel() {
 }
 
 func (r *Register) processRegistration() {
+	// Validate captcha (if applicable) or return
+	if r.Sicas != "" {
+		if sicasAuth, segs := r.ParseSicasAuth(r.HttpRequest.Header.Get("Authorization")); sicasAuth {
+			if res, err := r.sicasValidate(r.Sicas, segs[0], segs[1]); !res.Success {
+				r.NewError(res.Status, res.Reason)
+				return
+			} else if err != nil {
+				r.NewError(http.StatusInternalServerError, "Captcha validation error")
+				return
+			}
+		} else {
+			r.NewError(http.StatusBadRequest, "Invalid Authorization method")
+			return
+		}
+	}
+
+	// Captcha validation succeeds, proceed with registration
 	couch := NewCouch(r.Backend.Couchdb, r.Backend.Userdb)
 	_, err := couch.Get(r.RegistrationInfo.Email)
 
