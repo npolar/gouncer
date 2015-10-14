@@ -44,6 +44,7 @@ type Backend struct {
 	Userdb   string
 	Couchdb  string
 	Smtp     string
+	Sicas    string
 }
 
 // Token information
