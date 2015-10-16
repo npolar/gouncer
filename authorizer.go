@@ -140,6 +140,10 @@ func (auth *Authorizer) WildcardPathMatch(pathA string, pathB string) bool {
 	match := true
 
 	for i, seg := range segsA {
+		if i > (len(segsB) - 1) {
+			return false
+		}
+
 		if segsB[i] != seg && seg != "*" {
 			match = false
 		}
