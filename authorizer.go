@@ -43,7 +43,7 @@ func (auth *Authorizer) ValidateRequest(req map[string]interface{}) {
 			auth.AuthorizedToken(system)
 		}
 	} else {
-		auth.NewError(http.StatusUnauthorized, "No system info provided")
+		auth.NewError(http.StatusBadRequest, "No system info provided")
 	}
 }
 
