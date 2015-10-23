@@ -13,6 +13,7 @@ type Reset struct {
 
 type ResetBody struct {
 	Password string
+	Name     string
 }
 
 func NewResetHandler(h *ResponseHandler) *Reset {
@@ -72,6 +73,10 @@ func (re *Reset) executeReset(rb ResetBody) {
 	re.UserInfo["hash"] = "sha512"
 	re.UserInfo["salt"] = re.Salt
 	re.UserInfo["password"] = passhash
+
+	if rb.Name != "" {
+		re.UserInfo["name"] = rb.Name
+	}
 
 	if doc, err := json.Marshal(re.UserInfo); err == nil {
 		couch := NewCouch(re.Backend.Couchdb, re.Backend.Userdb)
