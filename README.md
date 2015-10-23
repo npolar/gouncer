@@ -203,6 +203,16 @@ Gouncer will respond with
   {"token": "asAd34fds..."}
 ```
 
+#### Update Password & Display Name
+
+Users with a valid token or basic auth can reset their password and display name.
+
+```shell
+  curl -k -XPOST https://localhost:8950/reset -H 'Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=' -d '{"password":"updatedPw", "name":"MyNewName"}'
+```
+
+**!NOTE** If you only want to update the password you can leave the name key out of the object or leave the value blank. eg {"password": ""} || {"password": "", "name":""}
+
 ## Example Notice
 
 Note that the curl commands in the provided examples ignore self signed SSL certificates. To check certificate validity remove the **-k** flag from the commands.
