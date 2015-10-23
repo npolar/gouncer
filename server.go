@@ -84,6 +84,7 @@ func (srv *Server) Start() {
 		HandlerDef{[]string{"/"}, srv.InfoHandler},
 		HandlerDef{[]string{"/authenticate", "/authenticate/"}, srv.AuthenticationHandler},
 		HandlerDef{[]string{"/authorize", "/authorize/"}, srv.AuthorizationHandler},
+		HandlerDef{[]string{"/reset", "/reset/"}, srv.ResetHandler},
 	}
 
 	// If an smtp server is configured enable the account registration routes
@@ -156,6 +157,23 @@ func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) 
 
 		// Handle authorization
 		authorizer.AuthorizeRequest()
+	} else {
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
+	}
+
+	handler.Respond()
+}
+
+func (srv *Server) ResetHandler(w http.ResponseWriter, r *http.Request) {
+	handler := srv.ConfigureHandler(w, r)
+
+	if r.Method == "POST" {
+		// Configure the ResetHandler
+		reset := NewResetHandler(handler)
+		reset.Backend = srv.Backend
+
+		// Handle reset
+		reset.UserPassword()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
 	}
