@@ -68,7 +68,7 @@ func ResolveStatus(status int) string {
 	case http.StatusInternalServerError:
 		return "Internal Server Error"
 	case http.StatusMethodNotAllowed:
-		return "Method not allowed"
+		return "Method Not Allowed"
 	case http.StatusConflict:
 		return "Conflict"
 	default:
