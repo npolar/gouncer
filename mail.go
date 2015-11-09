@@ -1,10 +1,14 @@
 package gouncer
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/smtp"
 	"net/url"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -43,7 +47,6 @@ func NewMailClient(recipient string, linkID string) *Mail {
 
 func (m *Mail) Confirmation(link string) error {
 	if m.allowedDomain(link) {
-
 		var message string
 
 		rxp := regexp.MustCompile(linkPattern)
@@ -53,14 +56,14 @@ func (m *Mail) Confirmation(link string) error {
 			message = "Subject:" + m.ConfirmSubject + "\r\n\r\n"
 			message += rxp2.ReplaceAllString(rxp.ReplaceAllString(m.ConfirmMessage, link), m.LinkID)
 		} else {
-			message = "Subject:Account Registration\r\n"
+			message = "Subject:Account Registration\r\n\r\n"
 			message += "Thank you for registering.\r\n"
 			message += "To complete your registration please click the following link: "
 			message += link + "/" + m.LinkID + "\r\n"
 			message += "Please delete this message if you did not try to register an account with us."
 		}
 
-		return m.SendMail(message)
+		return m.sendMail(message)
 	} else {
 		return errors.New("Confirmation link does not appear on the whitelist")
 	}
@@ -82,7 +85,7 @@ func (m *Mail) Cancellation() error {
 		message += "Please delete this message if you do not wish to cancel your account."
 	}
 
-	return m.SendMail(message)
+	return m.sendMail(message)
 }
 
 func (m *Mail) OneTimePassword(pwd string) error {
@@ -97,11 +100,20 @@ func (m *Mail) OneTimePassword(pwd string) error {
 		message += "You can use your email and the follwing password to login: " + pwd
 	}
 
-	return m.SendMail(message)
+	return m.sendMail(message)
+}
+
+// sendMail check the configured smtp mode to invoke the appropriate sendmail command
+func (m *Mail) sendMail(message string) error {
+	if m.Smtp == "sendmail" {
+		return m.unixSendMail(message)
+	} else {
+		return m.sendSMTP(message)
+	}
 }
 
 // Generate an SMTP request with the provided message
-func (m *Mail) SendMail(message string) error {
+func (m *Mail) sendSMTP(message string) error {
 	// Connect to the remote SMTP server specified through the commandline.
 	c, err := smtp.Dial(m.Smtp)
 	if err != nil {
@@ -136,6 +148,47 @@ func (m *Mail) SendMail(message string) error {
 	err = c.Quit()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// unixSendMail sends a mail using the mailx commandline program
+func (m *Mail) unixSendMail(message string) error {
+	content := exec.Command("echo", "-ne", message)
+	mailX := exec.Command("sendmail", "-f", m.Sender, m.Recipient)
+
+	r, w := io.Pipe()
+	content.Stdout = w
+	mailX.Stdin = r
+
+	var mResp bytes.Buffer
+	mailX.Stdout = &mResp
+
+	if err := content.Start(); err != nil {
+		return err
+	}
+
+	if err := mailX.Start(); err != nil {
+		return err
+	}
+
+	if err := content.Wait(); err != nil {
+		return err
+	}
+
+	if err := w.Close(); err != nil {
+		return err
+	}
+
+	if err := mailX.Wait(); err != nil {
+		return err
+	}
+
+	io.Copy(os.Stdout, &mResp)
+
+	if mResp.String() != "" {
+		return errors.New(mResp.String())
 	}
 
 	return nil
