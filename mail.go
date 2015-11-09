@@ -50,13 +50,13 @@ func (m *Mail) Confirmation(link string) error {
 		rxp2 := regexp.MustCompile(codePattern)
 
 		if m.ConfirmMessage != "" {
-			message = "Subject:" + m.ConfirmSubject + "\n\n"
+			message = "Subject:" + m.ConfirmSubject + "\r\n\r\n"
 			message += rxp2.ReplaceAllString(rxp.ReplaceAllString(m.ConfirmMessage, link), m.LinkID)
 		} else {
-			message = "Subject:Account Registration\n\n"
-			message += "Thank you for registering.\n\n"
+			message = "Subject:Account Registration\r\n"
+			message += "Thank you for registering.\r\n"
 			message += "To complete your registration please click the following link: "
-			message += link + "/" + m.LinkID + "\n"
+			message += link + "/" + m.LinkID + "\r\n"
 			message += "Please delete this message if you did not try to register an account with us."
 		}
 
@@ -73,12 +73,12 @@ func (m *Mail) Cancellation() error {
 	rxp := regexp.MustCompile(linkPattern)
 
 	if m.ConfirmMessage != "" {
-		message = "Subject:" + m.CancelSubject + "\n\n"
+		message = "Subject:" + m.CancelSubject + "\r\n\r\n"
 		rxp.ReplaceAllString(m.ConfirmMessage, m.LinkID)
 	} else {
-		message = "Subject:Account Cancellation\n\n"
+		message = "Subject:Account Cancellation\r\n"
 		message += "Click the following link to complete the cancellation process: "
-		message += m.LinkID + "\n"
+		message += m.LinkID + "\r\n"
 		message += "Please delete this message if you do not wish to cancel your account."
 	}
 
