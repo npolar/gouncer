@@ -79,7 +79,7 @@ func (m *Mail) Cancellation() error {
 		message = "Subject:" + m.CancelSubject + "\r\n\r\n"
 		rxp.ReplaceAllString(m.ConfirmMessage, m.LinkID)
 	} else {
-		message = "Subject:Account Cancellation\r\n"
+		message = "Subject:Account Cancellation\r\n\r\n"
 		message += "Click the following link to complete the cancellation process: "
 		message += m.LinkID + "\r\n"
 		message += "Please delete this message if you do not wish to cancel your account."
@@ -93,10 +93,10 @@ func (m *Mail) OneTimePassword(pwd string) error {
 	rxp := regexp.MustCompile(linkPattern)
 
 	if m.ConfirmMessage != "" {
-		message = "Subject:" + m.OneTimeSubject + "\n\n"
+		message = "Subject:" + m.OneTimeSubject + "\r\n\r\n"
 		message += rxp.ReplaceAllString(m.OneTimeMessage, pwd)
 	} else {
-		message = "Subject:One time password\n\n"
+		message = "Subject:One time password\r\n\r\n"
 		message += "You can use your email and the follwing password to login: " + pwd
 	}
 
