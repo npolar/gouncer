@@ -66,7 +66,7 @@ Gouncer supports configuration through a [TOML v0.4.0](https://github.com/toml-l
   userdb   = "users"                  # Name of the user database
   groupdb  = "groups"                 # Name of the groups database
   memcache = ["localhost:11211"]      # List of memcache instances
-  smtp     = "my-smtp.com:25"         # Address to the SMTP server you want to use to send notifications
+  smtp     = "sendmail"               # Address to the SMTP server you want to use to send notifications || sendmail
 
   [token]
   algorithm  = "HS512" # Supported JWT algorithms [none, HS256, HS384, HS512]
