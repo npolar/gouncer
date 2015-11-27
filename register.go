@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"strings"
 )
 
 type Register struct {
@@ -152,6 +153,9 @@ func (r *Register) cacheRegistrationRequest() (string, error) {
 	if r.RegistrationInfo.Password == "" {
 		return "", errors.New("[Registration Error] Missing password")
 	}
+
+	// Lowercase the email address
+	r.RegistrationInfo.Email = strings.ToLower(r.RegistrationInfo.Email)
 
 	r.Credentials.HashAlg = crypto.SHA512
 	r.Credentials.Password = r.RegistrationInfo.Password

@@ -67,7 +67,7 @@ func (creds *Credentials) ParseBasicAuth(basicAuth string) error {
 
 		if err == nil {
 			if len(segs[0]) > 0 && len(segs[1]) > 0 {
-				creds.Username = segs[0]
+				creds.Username = strings.ToLower(segs[0])
 				creds.Password = segs[1]
 			} else {
 				err = errors.New("Empty password field")

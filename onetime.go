@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"errors"
 	"net/http"
+	"strings"
 )
 
 type OneTime struct {
@@ -38,6 +39,8 @@ func (o *OneTime) RequestPassword() {
 
 func (o *OneTime) generateOneTimePassword(user string) (string, error) {
 	if user != "" {
+		user = strings.ToLower(user)
+
 		var pwd string
 		o.Username = user
 		o.HashAlg = crypto.SHA1
