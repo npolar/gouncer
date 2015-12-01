@@ -209,6 +209,10 @@ func (creds *Credentials) ValidBasicAuth() (bool, error) {
 		// Set the UserInfo to the retrieved user doc
 		creds.UserInfo = userInfo
 
+		if userInfo["active"] == nil {
+			return false, errors.New("Invalid user object. Missing 'active' key.")
+		}
+
 		if userInfo["active"].(bool) == true {
 			creds.ResolveHashAlg(userInfo["hash"].(string))
 			creds.Salt = userInfo["salt"].(string)
