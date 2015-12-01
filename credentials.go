@@ -214,11 +214,16 @@ func (creds *Credentials) ValidBasicAuth() (bool, error) {
 		}
 
 		if userInfo["active"].(bool) == true {
-			creds.ResolveHashAlg(userInfo["hash"].(string))
-			creds.Salt = userInfo["salt"].(string)
+			var valid bool
 
-			valid, perr := creds.ValidatePasswordHash(userInfo["password"].(string))
-			err = perr
+			if userInfo["hash"] != nil && userInfo["salt"] != nil && userInfo["password"] != nil {
+				creds.ResolveHashAlg(userInfo["hash"].(string))
+				creds.Salt = userInfo["salt"].(string)
+
+				valid, err = creds.ValidatePasswordHash(userInfo["password"].(string))
+			} else {
+				valid = false
+			}
 
 			// If the regular password isn't valid check for a cached one time pass
 			if !valid {
