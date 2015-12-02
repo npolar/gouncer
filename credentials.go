@@ -237,6 +237,9 @@ func (creds *Credentials) ValidBasicAuth() (bool, error) {
 						return false, errors.New("Invalid password")
 					}
 				}
+
+				// if the cache misses we'll assume you wrote in a wrong password
+				err = errors.New("Invalid password")
 			}
 
 			return valid, err
