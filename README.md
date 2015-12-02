@@ -94,7 +94,7 @@ Gouncer supports configuration through a [TOML v0.4.0](https://github.com/toml-l
   cancel_subject       = "Cancellation confirmation"                                       # Cancellation mail subject
   cancel_message       = "Bummer dude! Click to cancel the awesomeness: {{link}}/{{code}}" # Cancellation mail message. Use the {{link}} pattern to inject the link into the message
   onetime_subject      = "One-time login code"                                             # OneTime mail subject
-  onetime_message      = "You can use the following link to login.\n\n {{link}}"           # OneTime mail message. Use the {{link}} pattern to inkject the link into the message
+  onetime_message      = "You can use the following link to login.\n\n {{link}}"           # OneTime mail message. Use the {{link}} pattern to inkject the link into the message. You also can use {{code}} and {{user}} to construct an alternate message
   whitelist_domains    = ["https://example.com/*"]                                         # List of domains that are valid for registration handling
 
 ```
