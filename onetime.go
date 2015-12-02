@@ -26,7 +26,7 @@ func (o *OneTime) RequestPassword() {
 
 	if err = DecodeJsonRequest(o.HttpRequest.Body, &info); err == nil {
 		if pwd, perr := o.generateOneTimePassword(info.Email); perr == nil {
-			err = o.mailPassword(pwd)
+			err = o.mailPassword(pwd, info.Link)
 		} else {
 			err = perr
 		}
@@ -60,11 +60,11 @@ func (o *OneTime) generateOneTimePassword(user string) (string, error) {
 	return "", errors.New("No email address provided")
 }
 
-func (o *OneTime) mailPassword(pwd string) error {
+func (o *OneTime) mailPassword(pwd string, link string) error {
 	mail := NewMailClient(o.Username, "")
 	mail.Backend = o.Backend
 	mail.MailConfig = o.MailConfig
-	err := mail.OneTimePassword(pwd)
+	err := mail.OneTimePassword(pwd, link)
 
 	if err == nil {
 		o.NewResponse(http.StatusOK, "You should receive an email with your one time password in a few moments")

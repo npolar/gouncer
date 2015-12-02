@@ -16,6 +16,7 @@ import (
 const (
 	linkPattern = "{{link}}"
 	codePattern = "{{code}}"
+	userPattern = "{{user}}"
 )
 
 type Mail struct {
@@ -54,7 +55,8 @@ func (m *Mail) Confirmation(link string) error {
 
 		if m.ConfirmMessage != "" {
 			message = "Subject:" + m.ConfirmSubject + "\r\n\r\n"
-			message += rxp2.ReplaceAllString(rxp.ReplaceAllString(m.ConfirmMessage, link), m.LinkID)
+			message += rxp.ReplaceAllString(m.ConfirmMessage, link)
+			message = rxp2.ReplaceAllString(message, m.LinkID)
 		} else {
 			message = "Subject:Account Registration\r\n\r\n"
 			message += "Thank you for registering.\r\n"
@@ -88,16 +90,29 @@ func (m *Mail) Cancellation() error {
 	return m.sendMail(message)
 }
 
-func (m *Mail) OneTimePassword(pwd string) error {
+func (m *Mail) OneTimePassword(pwd string, link string) error {
+	// If a link is provided check if it is on the white list
+	if link != "" && !m.allowedDomain(link) {
+		return errors.New("One-time link does not appear to be on the whitelist.")
+	}
+
 	var message string
 	rxp := regexp.MustCompile(linkPattern)
+	rxp2 := regexp.MustCompile(codePattern)
+	rxp3 := regexp.MustCompile(userPattern)
 
 	if m.ConfirmMessage != "" {
 		message = "Subject:" + m.OneTimeSubject + "\r\n\r\n"
-		message += rxp.ReplaceAllString(m.OneTimeMessage, pwd)
+		if link != "" {
+			message += rxp.ReplaceAllString(m.OneTimeMessage, link)
+		} else {
+			message += "You can use your email ({{user}}) and the following code: " + pwd + " to login."
+		}
+		message = rxp2.ReplaceAllString(message, pwd)
+		message = rxp3.ReplaceAllString(message, m.Recipient)
 	} else {
 		message = "Subject:One time password\r\n\r\n"
-		message += "You can use your email and the follwing password to login: " + pwd
+		message += "You can use your email (" + m.Recipient + ") and the follwing Code: " + pwd + " to login."
 	}
 
 	return m.sendMail(message)
