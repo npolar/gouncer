@@ -192,7 +192,7 @@ In order to provide users with the ability to reset forgotten passwords they can
 ```
 
 Alternate you can have pass along a link that the user can click instead. In order for the link to work you have to whitelist the domain in the gouncer configuration. Use the
-{{code}} pattern to inject the onetime code and the {{user}} pattern to inject the username (email).
+**{{code}}** pattern to inject the onetime code and the **{{user}}** pattern to inject the username (email).
 
 ```shell
   curl -k -XPOST https://localhost:8950/onetime -d '{"email": "user@email.com", "link": "https://{{user}}:{{code}}@localhost:8950/authenticate"}'
