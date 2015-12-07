@@ -206,6 +206,10 @@ func (m *Mail) unixSendMail(message string) error {
 		return errors.New(mResp.String())
 	}
 
+	if err := r.Close(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
