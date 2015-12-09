@@ -212,9 +212,9 @@ Gouncer will respond with
   {"token": "asAd34fds..."}
 ```
 
-#### Update Password & Display Name
+#### Update Password & Name
 
-Users with a valid token or basic auth can reset their password and display name.
+Users with a valid token or basic auth can reset their password and name.
 
 ```shell
   curl -k -XPOST https://localhost:8950/reset -H 'Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=' -d '{"password":"updatedPw", "name":"MyNewName"}'
@@ -222,6 +222,8 @@ Users with a valid token or basic auth can reset their password and display name
 ```
 
 **!NOTE** If you only want to update the password you can leave the name key out of the object or leave the value blank. eg {"password": ""} || {"password": "", "name":""}
+
+Note that Gouncer does not support updating somebody else's password or name. 
 
 ## Example Notice
 
