@@ -5,6 +5,8 @@ import (
 	"github.com/rs/cors"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
+	"os"
 )
 
 type Server struct {
@@ -45,6 +47,7 @@ type Backend struct {
 	Couchdb  string
 	Smtp     string
 	Sicas    string
+	Logger   *log.Logger
 }
 
 // Token information
@@ -65,6 +68,7 @@ type HandlerDef struct {
 }
 
 func NewServer(cfg *Config) *Server {
+
 	srv := &Server{Config: cfg}
 	srv.Cache = srv.NewCache(srv.Memcache)
 
@@ -106,14 +110,26 @@ func (srv *Server) Start() {
 		}
 	}
 
+	// Setup the global logger
+	logFile, err := os.OpenFile(srv.Core.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+
+	if err != nil {
+		log.Fatalln("Error creating logfile:", err)
+	}
+
+	srv.Logger = log.New(logFile, "", log.Ldate|log.Ltime|log.Lshortfile)
+
 	// Attempt to start the server. On error server exits with status 1
 	if err := http.ListenAndServeTLS(srv.Port, srv.Certificate, srv.Key, nil); err != nil {
-		log.Fatal(err)
+		srv.Logger.Fatal(err)
 	}
+
+	logFile.Close()
 }
 
 // Authentication handler checks the method and delegates a token request
 func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[AUTHENTICATION] -", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "GET" {
 		// Configure the Authenticator
@@ -131,6 +147,7 @@ func (srv *Server) AuthenticationHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (srv *Server) OneTimeHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[ONETIME] -", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
 	handler := srv.ConfigureHandler(w, r)
 
 	if r.Method == "POST" {
@@ -148,6 +165,7 @@ func (srv *Server) OneTimeHandler(w http.ResponseWriter, r *http.Request) {
 
 // AuthorizationHandler checks the http method and delegates the request to the authorizer
 func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[AUTHORIZATION]", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "POST" {
 		// Configure the Authorizer
@@ -165,6 +183,7 @@ func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (srv *Server) ResetHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[RESET] -", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
 	handler := srv.ConfigureHandler(w, r)
 
 	if r.Method == "POST" {
@@ -183,6 +202,7 @@ func (srv *Server) ResetHandler(w http.ResponseWriter, r *http.Request) {
 
 // RegistrationHandler receives a regestration request and initiates the registration process
 func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[REGISTRATION] -", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "POST" {
 		registration := NewRegistration(handler)
@@ -200,6 +220,7 @@ func (srv *Server) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 
 // UnregHandler allows a user to unregister by sending a delete request with valid auth information
 func (srv *Server) UnRegHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[UN-REGISTER] -", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "DELETE" {
 		registration := NewRegistration(handler)
@@ -216,6 +237,7 @@ func (srv *Server) UnRegHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (srv *Server) CancelationHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[CANCELLATION] -", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "GET" {
 		cancellation := NewCancellation(handler)
@@ -230,6 +252,7 @@ func (srv *Server) CancelationHandler(w http.ResponseWriter, r *http.Request) {
 
 // ConfirmationHandler receives a confirmation request and initiates the confirmation sequence
 func (srv *Server) ConfirmationHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[CONFIRMATION] -", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
 	handler := srv.ConfigureHandler(w, r)
 	if r.Method == "GET" {
 		confirm := NewConfirm(handler)
