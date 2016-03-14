@@ -6,20 +6,22 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/npolar/toki"
 	"io"
-	"log"
 	"math/rand"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/npolar/toki"
 )
 
 const (
 	basicPattern  = "(?i)^Basic\\s([a-zA-Z0-9-_=]+)$"
 	bearerPattern = "(?i)^Bearer\\s([a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+)$"
 )
+
+var sysRegex = regexp.MustCompile(`^http(?:s)?\://(.[^/]+)/(.*[^\*]/?)?(\*)?$`)
 
 type Credentials struct {
 	Username string
@@ -177,7 +179,7 @@ func (creds *Credentials) ResolveGroupsToSystems(groups []interface{}) []interfa
 	docs, err := couch.GetMultiple(groups)
 
 	if err != nil {
-		log.Println("Error resolving groups: ", err)
+		creds.Logger.Println("Error resolving groups: ", err)
 	}
 
 	var systems []interface{}
@@ -185,7 +187,9 @@ func (creds *Credentials) ResolveGroupsToSystems(groups []interface{}) []interfa
 	if err == nil {
 		for _, doc := range docs {
 			if systemList, exists := doc.(map[string]interface{})["systems"]; exists {
-				systems = systemList.([]interface{})
+				for _, s := range systemList.([]interface{}) {
+					systems = append(systems, s)
+				}
 			}
 		}
 	}
