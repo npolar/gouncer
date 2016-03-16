@@ -164,7 +164,11 @@ You can also gain read access by sending in a special key system set to the **/k
   curl -XPOST https://localhost:8950/key -d '{"key": "ecae13117d6f0584c25a9da6c8f8415e+Asd2sdaAce_22ewdIOKAs908l234d", "system": "https://example.com/info"}'
 ```
 
-By writing a middleware that converts a query param like ?key=ecae13117d6f0584c25a9da6c8f8415e+Asd2sdaAce_22ewdIOKAs908l234d it will still be possible to read data on a restricted endpoint if you have a valid system key.
+By writing a middleware that converts a query param like ?key= into the proper body we can make something like this work:
+
+```html
+<a href="https://example.com/info?key=ecae13117d6f0584c25a9da6c8f8415e+Asd2sdaAce_22ewdIOKAs908l234d">awesome api key link</a>
+```
 
 #### Account Registration
 
