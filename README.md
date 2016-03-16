@@ -158,7 +158,7 @@ If your user does not have access to the system you will get a HTTP 403 Forbidde
 
 ##### Read Key
 
-You can also gain read access by sending in a special key system set to the **/key** endpoint. This is meant to allow for read access via systems which can't send an Auth header for example an html link.
+You can also gain read access by sending in a special "key - system" set to the **/key** endpoint. This is meant to allow for read access via systems which can't send an Auth header for example an html link.
 
 ```shell
   curl -XPOST https://localhost:8950/key -d '{"key": "ecae13117d6f0584c25a9da6c8f8415e+Asd2sdaAce_22ewdIOKAs908l234d", "system": "https://example.com/info"}'
@@ -169,6 +169,8 @@ By writing a middleware that converts a query param like ?key= into the proper b
 ```html
 <a href="https://example.com/info?key=ecae13117d6f0584c25a9da6c8f8415e+Asd2sdaAce_22ewdIOKAs908l234d">awesome api key link</a>
 ```
+
+Valid key system combinations can be found in the token payload.
 
 #### Account Registration
 
