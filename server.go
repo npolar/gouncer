@@ -1,12 +1,13 @@
 package gouncer
 
 import (
-	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/rs/cors"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+
+	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/rs/cors"
 )
 
 type Server struct {
@@ -88,6 +89,7 @@ func (srv *Server) Start() {
 		HandlerDef{[]string{"/"}, srv.InfoHandler},
 		HandlerDef{[]string{"/authenticate", "/authenticate/"}, srv.AuthenticationHandler},
 		HandlerDef{[]string{"/authorize", "/authorize/"}, srv.AuthorizationHandler},
+		HandlerDef{[]string{"/key", "/key/"}, srv.ReadKeyHandler},
 		HandlerDef{[]string{"/reset", "/reset/"}, srv.ResetHandler},
 	}
 
@@ -175,6 +177,22 @@ func (srv *Server) AuthorizationHandler(w http.ResponseWriter, r *http.Request) 
 
 		// Handle authorization
 		authorizer.AuthorizeRequest()
+	} else {
+		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
+	}
+
+	handler.Respond()
+}
+
+func (srv *Server) ReadKeyHandler(w http.ResponseWriter, r *http.Request) {
+	srv.Logger.Println("[READ-KEY]", r.Proto, r.Method, r.URL.Path, r.Header.Get("User-Agent"))
+	handler := srv.ConfigureHandler(w, r)
+	if r.Method == "POST" {
+		// Configure the Key Handler
+		key := NewKeyHandler(handler)
+		key.Backend = srv.Backend
+
+		key.HandleRequest()
 	} else {
 		handler.NewError(http.StatusMethodNotAllowed, "Allowed methods for this endpoint: [POST]")
 	}

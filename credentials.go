@@ -1,6 +1,7 @@
 package gouncer
 
 import (
+	"bytes"
 	"crypto"
 	"encoding/base64"
 	"encoding/hex"
@@ -146,6 +147,12 @@ func (creds *Credentials) GenerateHash(content string) string {
 	return hex.EncodeToString(alg.Sum(nil))
 }
 
+func (creds *Credentials) GenerateUserKey() string {
+	summer := crypto.MD5.New()
+	io.Copy(summer, bytes.NewReader([]byte(creds.Username)))
+	return hex.EncodeToString(summer.Sum(nil))
+}
+
 // ConfigureUserHashAlg sets the hash algorithm to that in the userObj
 func (creds *Credentials) ResolveHashAlg(hash string) {
 	switch hash {
@@ -280,6 +287,20 @@ func (creds *Credentials) ValidToken() (bool, error) {
 	}
 
 	return false, err
+}
+
+func (creds *Credentials) CacheKeyList(kl *KeyList, exp int32) {
+	l, err := json.Marshal(kl)
+
+	if err != nil {
+		creds.Logger.Println("KEY LIST ENCODING:", err)
+	}
+
+	err = creds.CacheCredentials(kl.ID, l, exp)
+
+	if err != nil {
+		creds.Logger.Println("KEY CACHE:", err)
+	}
 }
 
 func (creds *Credentials) CacheCredentials(k string, v []byte, exp int32) error {

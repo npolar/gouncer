@@ -2,9 +2,11 @@ package gouncer
 
 import (
 	"encoding/json"
-	"github.com/npolar/toki"
+	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/npolar/toki"
 )
 
 type Authenticator struct {
@@ -96,6 +98,7 @@ func (auth *Authenticator) CacheTokenInfo() error {
 func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string]interface{} {
 	var content = make(map[string]interface{})
 	var systems []interface{}
+	var kList = &KeyList{ID: auth.Credentials.GenerateUserKey(), Pairs: make(map[string]string)}
 
 	content["email"] = auth.Username
 
@@ -109,10 +112,16 @@ func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string
 
 	if groups, exists := userData["groups"]; exists {
 		systems = auth.ResolveGroupsToSystems(groups.([]interface{}))
+
+		for _, s := range systems {
+			key := auth.CharSalt(32)
+			kList.Pairs[key] = s.(map[string]interface{})["uri"].(string)
+			s.(map[string]interface{})["key"] = fmt.Sprintf("%s+%s", kList.ID, key)
+		}
 	}
 
 	if list, exists := userData["systems"].([]interface{}); exists {
-		systems = auth.ResolveDuplicateSystems(list, systems)
+		systems = auth.ResolveDuplicateSystems(list, systems, kList)
 	}
 
 	if len(systems) > 0 {
@@ -120,11 +129,12 @@ func (auth *Authenticator) TokenBody(userData map[string]interface{}) map[string
 	}
 
 	content["exp"] = time.Now().Add(time.Duration(auth.Expiration) * time.Second).Unix() // Move expiration control to the token
+	auth.CacheKeyList(kList, auth.Expiration)                                            // Save The KeyList
 
 	return content
 }
 
-func (auth *Authenticator) ResolveDuplicateSystems(userSystems []interface{}, systems []interface{}) []interface{} {
+func (auth *Authenticator) ResolveDuplicateSystems(userSystems []interface{}, systems []interface{}, kl *KeyList) []interface{} {
 	for l, uSys := range userSystems {
 		accessible := true
 
@@ -139,6 +149,10 @@ func (auth *Authenticator) ResolveDuplicateSystems(userSystems []interface{}, sy
 
 		// If non existent append the system into the list
 		if accessible {
+			key := auth.CharSalt(32)
+			kl.Pairs[key] = uSys.(map[string]interface{})["uri"].(string)
+			uSys.(map[string]interface{})["key"] = fmt.Sprintf("%s+%s", kl.ID, key)
+
 			systems = append(systems, uSys)
 		}
 	}
