@@ -156,6 +156,16 @@ Gouncer will respond with a list of access rights.
 
 If your user does not have access to the system you will get a HTTP 403 Forbidden error.
 
+##### Read Key
+
+You can also gain read access by sending in a special key system set to the **/key** endpoint. This is meant to allow for read access via systems which can't send an Auth header for example an html link.
+
+```shell
+  curl -XPOST https://localhost:8950/key -d '{"key": "ecae13117d6f0584c25a9da6c8f8415e+Asd2sdaAce_22ewdIOKAs908l234d", "system": "https://example.com/info"}'
+```
+
+By writing a middleware that converts a query param like ?key=ecae13117d6f0584c25a9da6c8f8415e+Asd2sdaAce_22ewdIOKAs908l234d it will still be possible to read data on a restricted endpoint if you have a valid system key.
+
 #### Account Registration
 
 To create a new account you can send a request to the /register path. **NOTE**: an smtp address must be set for this feature to work.
@@ -223,7 +233,7 @@ Users with a valid token or basic auth can reset their password and name.
 
 **!NOTE** If you only want to update the password you can leave the name key out of the object or leave the value blank. eg {"password": ""} || {"password": "", "name":""}
 
-Note that Gouncer does not support updating somebody else's password or name. 
+Note that Gouncer does not support updating somebody else's password or name.
 
 ## Example Notice
 
