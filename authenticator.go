@@ -141,6 +141,10 @@ func (auth *Authenticator) ResolveDuplicateSystems(userSystems []interface{}, sy
 		// Check if the system already exists and override if found
 		for i, system := range systems {
 			if system.(map[string]interface{})["uri"] == uSys.(map[string]interface{})["uri"] {
+				key := auth.CharSalt(32)
+				kl.Pairs[key] = uSys.(map[string]interface{})["uri"].(string)
+				uSys.(map[string]interface{})["key"] = fmt.Sprintf("%s+%s", kl.ID, key)
+
 				systems[i] = uSys
 				userSystems = append(userSystems[:l], userSystems[l+1:]...) // When overriding remove the item from the list
 				accessible = false
