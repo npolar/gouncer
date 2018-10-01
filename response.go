@@ -38,7 +38,7 @@ func NewResponseHandler(w http.ResponseWriter, r *http.Request) *ResponseHandler
 func (resp *ResponseHandler) NewError(status int, err string) {
 	resp.Response = &Response{
 		Status:      status,
-		HttpMessage: ResolveStatus(status),
+		HttpMessage: http.StatusText(status),
 		Error:       err,
 	}
 }
@@ -47,32 +47,8 @@ func (resp *ResponseHandler) NewError(status int, err string) {
 func (resp *ResponseHandler) NewResponse(status int, message string) {
 	resp.Response = &Response{
 		Status:      status,
-		HttpMessage: ResolveStatus(status),
+		HttpMessage: http.StatusText(status),
 		Message:     message,
-	}
-}
-
-// ResolveStatus returns the defined explanation for the status code
-func ResolveStatus(status int) string {
-	switch status {
-	case http.StatusOK:
-		return "OK"
-	case http.StatusCreated:
-		return "Created"
-	case http.StatusUnauthorized:
-		return "Unauthorized"
-	case http.StatusForbidden:
-		return "Forbidden"
-	case http.StatusBadRequest:
-		return "Bad Request"
-	case http.StatusInternalServerError:
-		return "Internal Server Error"
-	case http.StatusMethodNotAllowed:
-		return "Method Not Allowed"
-	case http.StatusConflict:
-		return "Conflict"
-	default:
-		return "Not defined in system"
 	}
 }
 
