@@ -62,7 +62,7 @@ func (auth *Authorizer) AuthorizedUser(system string) {
 
 		auth.SystemAccessible(system, accessList)
 	} else {
-		auth.NewError(http.StatusForbidden, err.Error())
+		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 }
 
@@ -77,7 +77,7 @@ func (auth *Authorizer) AuthorizedToken(system string) {
 
 		auth.SystemAccessible(system, accessList)
 	} else {
-		auth.NewError(http.StatusForbidden, err.Error())
+		auth.NewError(http.StatusUnauthorized, err.Error())
 	}
 }
 
