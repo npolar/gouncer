@@ -81,7 +81,7 @@ func (srv *Server) Start() {
 	// Confiugre CORS
 	corsRules := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"POST", "GET", "HEAD", "OPTIONS"},
+		AllowedMethods: []string{"POST", "GET", "HEAD", "OPTIONS", "DELETE"},
 		AllowedHeaders: []string{"Accept", "Content-Type", "Authorization", "Origin"},
 	})
 
