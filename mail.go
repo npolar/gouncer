@@ -71,20 +71,19 @@ func (m *Mail) Confirmation(link string) error {
 	}
 }
 
-// @TODO add link injection for cancellation messages
 func (m *Mail) Cancellation() error {
 	var message string
 
-	rxp := regexp.MustCompile(linkPattern)
+	rxp := regexp.MustCompile(codePattern)
 
 	if m.ConfirmMessage != "" {
 		message = "Subject:" + m.CancelSubject + "\r\n\r\n"
-		rxp.ReplaceAllString(m.ConfirmMessage, m.LinkID)
+		message += rxp.ReplaceAllString(m.CancelMessage, m.LinkID)
 	} else {
 		message = "Subject:Account Cancellation\r\n\r\n"
-		message += "Click the following link to complete the cancellation process: "
+		message += "Send in the following code to complete the cancellation process: "
 		message += m.LinkID + "\r\n"
-		message += "Please delete this message if you do not wish to cancel your account."
+		message += "Please ignore this message if you do not wish to cancel your account."
 	}
 
 	return m.sendMail(message)
